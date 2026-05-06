@@ -1,0 +1,86 @@
+# Ingress Resource Analysis
+
+## Purpose
+Analyze existing Ingress resources to determine what must be converted to HTTPRoute and identify conversion complexity.
+
+## Checks to Execute
+
+### 3.1 — Annotation Inventory & Gateway API Mapping
+
+**What to check:**
+- All annotations on every Ingress resource
+- Which annotations have direct HTTPRoute equivalents
+- Which require Gateway-level config, policy attachments, or AWS service substitution
+- Which have no Gateway API equivalent (blockers)
+
+**How to check:**
+1. List all Ingress resources across all namespaces
+2. For each, extract all annotations
+3. Map each annotation to its Gateway API equivalent:
+
+**Annotation mapping to Gateway API:**
+
+| Current Annotation | Gateway API Equivalent |
+|---|---|
+| `nginx.ingress.kubernetes.io/rewrite-target` | HTTPRoute `filters[].urlRewrite` |
+| `nginx.ingress.kubernetes.io/ssl-redirect` | Gateway listener `tls` config |
+| `nginx.ingress.kubernetes.io/cors-*` | No native equivalent — use AWS WAF or application-level |
+| `nginx.ingress.kubernetes.io/auth-url` | No equivalent — use ALB + Cognito/OIDC via Gateway annotation |
+| `nginx.ingress.kubernetes.io/canary-*` | HTTPRoute `backendRefs[].weight` (traffic splitting) |
+| `nginx.ingress.kubernetes.io/affinity` | No native equivalent — use `alb.ingress.kubernetes.io/target-group-attributes` on Gateway |
+| `nginx.ingress.kubernetes.io/configuration-snippet` | ❌ No equivalent — redesign needed |
+| `nginx.ingress.kubernetes.io/server-snippet` | ❌ No equivalent — redesign needed |
+| `nginx.ingress.kubernetes.io/lua-resty-waf` | ❌ No equivalent — use AWS WAF |
+| `alb.ingress.kubernetes.io/scheme` | Gateway annotation `alb.ingress.kubernetes.io/scheme` |
+| `alb.ingress.kubernetes.io/certificate-arn` | Gateway listener `tls.certificateRefs` or annotation |
+| `alb.ingress.kubernetes.io/actions.*` | HTTPRoute `filters` + `backendRefs` |
+
+**Rating:**
+- 🟢 GREEN: All annotations map to HTTPRoute features or Gateway annotations
+- 🟡 AMBER: Most map cleanly, some need AWS service substitution (WAF, Cognito)
+- 🔴 RED: Heavy use of nginx snippets/lua with no Gateway API equivalent
+- ⬜ UNKNOWN: Cannot parse annotations
+
+### 3.2 — TLS Configuration
+
+**What to check:**
+- Ingress TLS sections (spec.tls)
+- TLS termination strategy
+- Certificate sources (K8s Secrets vs ACM)
+
+**How to check:**
+1. For each Ingress, check `spec.tls` entries
+2. Check for ACM certificate ARN annotations
+3. Check for SSL passthrough annotations
+
+**Gateway API TLS model:**
+- TLS termination is configured on the **Gateway listener**, not on HTTPRoute
+- ACM certificates: referenced via Gateway annotation
+- K8s Secret certs: referenced via `tls.certificateRefs` in Gateway listener
+- SSL passthrough: use TLSRoute (not HTTPRoute)
+
+**Rating:**
+- 🟢 GREEN: Edge termination with ACM — maps directly to Gateway listener
+- 🟡 AMBER: Using K8s Secrets — need cert-manager Gateway integration or migrate to ACM
+- 🔴 RED: SSL passthrough required — needs TLSRoute (experimental channel CRD)
+- ⬜ UNKNOWN: Cannot determine TLS configuration
+
+### 3.3 — Backend Service Compatibility
+
+**What to check:**
+- All backend services referenced by Ingress resources exist and are healthy
+- Service types (ClusterIP preferred for Gateway API with IP target mode)
+- Cross-namespace backends (need ReferenceGrant in Gateway API)
+
+**How to check:**
+1. For each Ingress, extract backend service references
+2. Verify each Service exists with healthy endpoints
+3. Flag any cross-namespace references — these need ReferenceGrant resources
+
+**Rating:**
+- 🟢 GREEN: All backends healthy, same-namespace, ClusterIP
+- 🟡 AMBER: Some cross-namespace backends (need ReferenceGrant) or NodePort services
+- 🔴 RED: Missing backends or services with no endpoints
+- ⬜ UNKNOWN: Cannot verify endpoint health
+
+**Topology data to collect:** Record every Ingress→backend mapping for the 3D visualization.

@@ -1,0 +1,12 @@
+# Reports (generated)
+reports/*.md
+reports/*.html
+!reports/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# OS
+.DS_Store
