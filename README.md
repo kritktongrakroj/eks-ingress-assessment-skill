@@ -2,9 +2,10 @@
 
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10+-green.svg)](https://www.python.org/)
+[![Claude Code](https://img.shields.io/badge/Claude_Code-skill-orange.svg)](https://docs.anthropic.com/en/docs/claude-code)
 [![Kiro CLI](https://img.shields.io/badge/Kiro_CLI-skill-purple.svg)](https://kiro.dev)
 
-A [Kiro CLI](https://kiro.dev) / [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that performs automated EKS Ingress-to-Gateway-API migration assessments. It connects to live EKS clusters, discovers all Ingress resources, rates migration readiness across 7 areas, and generates an interactive HTML report with 3D topology visualization and ready-to-apply Gateway API manifests.
+A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) / [Kiro CLI](https://kiro.dev) skill that performs automated EKS Ingress-to-Gateway-API migration assessments. It connects to live EKS clusters, discovers all Ingress resources, rates migration readiness across 7 areas, and generates an interactive HTML report with 3D topology visualization and ready-to-apply Gateway API manifests.
 
 Checks are informed by the [EKS Best Practices Guide](https://docs.aws.amazon.com/eks/latest/best-practices/), [Gateway API specification](https://gateway-api.sigs.k8s.io/), and [AWS Load Balancer Controller docs](https://kubernetes-sigs.github.io/aws-load-balancer-controller/). All operations are **read-only** — the skill does not modify your cluster.
 
@@ -26,7 +27,7 @@ Checks are informed by the [EKS Best Practices Guide](https://docs.aws.amazon.co
 
 ### Prerequisites
 
-- [Kiro CLI](https://kiro.dev) or [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) or [Kiro CLI](https://kiro.dev) installed
 - [Python 3.10+](https://www.python.org/) (report tool uses only stdlib — no pip packages needed)
 - AWS credentials configured — `aws sts get-caller-identity` should succeed
 
@@ -35,10 +36,19 @@ Checks are informed by the [EKS Best Practices Guide](https://docs.aws.amazon.co
 ```bash
 git clone https://github.com/kritktongrakroj/eks-ingress-assessment-skill.git
 cd eks-ingress-assessment-skill
+```
+
+**With Claude Code:**
+```bash
+claude
+```
+
+**With Kiro CLI:**
+```bash
 kiro
 ```
 
-On first launch, Kiro will prompt you to enable two MCP servers from `.mcp.json`. **Enable both** — they are required for the skill to work:
+On first launch, the tool will prompt you to enable two MCP servers from `.mcp.json`. **Enable both** — they are required for the skill to work:
 
 - `awslabs.eks-mcp-server` — connects to your EKS cluster's Kubernetes API
 - `awslabs.aws-documentation-mcp-server` — looks up AWS documentation during assessment
@@ -210,10 +220,14 @@ eks-ingress-assessment-skill/
 ├── .mcp.json                              # MCP server configuration
 ├── CLAUDE.md                              # Claude Code project instructions
 ├── .gitignore                             # Excludes reports/, __pycache__/
+├── .claude/
+│   └── skills/
+│       └── ingressmigration/
+│           └── SKILL.md                   # Skill definition (Claude Code)
 ├── .kiro/
 │   └── skills/
 │       └── ingressmigration/
-│           └── SKILL.md                   # Skill definition & agent workflow
+│           └── SKILL.md                   # Skill definition (Kiro CLI)
 ├── steering/                              # Assessment logic (agent instructions)
 │   ├── ingress-discovery.md               #   Controllers, IngressClass, inventory
 │   ├── ingress-resources.md               #   Annotations, TLS, backends
