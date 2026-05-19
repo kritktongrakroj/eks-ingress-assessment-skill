@@ -5,7 +5,12 @@
 [![Claude Code](https://img.shields.io/badge/Claude_Code-skill-orange.svg)](https://docs.anthropic.com/en/docs/claude-code)
 [![Kiro CLI](https://img.shields.io/badge/Kiro_CLI-skill-purple.svg)](https://kiro.dev)
 
-A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) / [Kiro CLI](https://kiro.dev) skill that performs automated EKS Ingress-to-Gateway-API migration assessments. It connects to live EKS clusters, discovers all Ingress resources, rates migration readiness across 7 areas, and generates an interactive HTML report with 3D topology visualization and ready-to-apply Gateway API manifests.
+A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) / [Kiro CLI](https://kiro.dev) skill that performs automated EKS Ingress migration assessments. It connects to live EKS clusters, discovers all Ingress resources, rates migration readiness across 7 areas, and generates an interactive HTML report with 3D topology visualization and ready-to-apply manifests.
+
+**Three migration paths supported:**
+- **Gateway API** (HTTPRoute + Gateway) — the Kubernetes-native successor to Ingress
+- **AWS Load Balancer Controller** (ALB Ingress) — stay on Ingress API, swap NGINX→ALB
+- **AWS Transform (ATX)** — fully automated manifest rewriting using the included Transform Definition
 
 Checks are informed by the [EKS Best Practices Guide](https://docs.aws.amazon.com/eks/latest/best-practices/), [Gateway API specification](https://gateway-api.sigs.k8s.io/), and [AWS Load Balancer Controller docs](https://kubernetes-sigs.github.io/aws-load-balancer-controller/). All operations are **read-only** — the skill does not modify your cluster.
 
@@ -90,7 +95,7 @@ The skill generates multiple output formats per cluster:
 | **Markdown Report** | Detailed findings, ratings, recommendations, CLI commands |
 | **Topology JSON** | Cluster architecture data (nodes, controllers, ingresses, services) |
 | **Current Manifests** | Existing Ingress resources as clean YAML (backup) |
-| **Target Manifests** | Gateway API resources in numbered apply order (ready to `kubectl apply`) |
+| **Target Manifests** | Gateway API resources + ALB Ingress resources in apply order |
 
 ### Report Features
 
@@ -111,11 +116,14 @@ All files are written to `~/ingress_migration/`:
 └── <cluster>-manifests/
     ├── current/                                     # Existing Ingress YAML
     │   └── <namespace>-<ingress-name>.yaml
-    └── target/                                      # Gateway API YAML
-        ├── 00-gateway-api-crds.yaml
-        ├── 01-gatewayclass.yaml
-        ├── 02-gateway.yaml
-        └── 03-httproute-<name>.yaml
+    └── target/
+        ├── gateway-api/                             # Gateway API YAML
+        │   ├── 00-gateway-api-crds.yaml
+        │   ├── 01-gatewayclass.yaml
+        │   ├── 02-gateway.yaml
+        │   └── 03-httproute-<name>.yaml
+        └── alb/                                     # ALB Controller YAML
+            └── <namespace>-<ingress-name>.yaml
 ```
 
 ## MCP Server Setup
@@ -182,7 +190,7 @@ Your IAM identity needs read access to Kubernetes resources via an [EKS access e
 
 - **Point-in-time snapshot** — reflects cluster state at the time of the run; does not monitor ongoing changes.
 - **Assessment only** — the skill presents findings and options. The migration strategy decision belongs to your DevOps team.
-- **Gateway API focus** — currently assesses migration to Gateway API only. Other migration paths (e.g., service mesh) may be added in the future.
+- **Three migration paths** — Gateway API, ALB Controller, and ATX automated. The skill assesses all three and recommends based on findings.
 - **No cluster modifications** — all operations are read-only. Generated manifests must be reviewed and applied manually.
 - **Scaled-down clusters** — clusters with 0 nodes can still be assessed for Ingress resources (the API server is always available), but workload health cannot be verified.
 
@@ -236,7 +244,17 @@ eks-ingress-assessment-skill/
 │   ├── migration-risk.md                  #   Downtime, feature gaps, rollback
 │   ├── migration-plan.md                  #   Phased plan with YAML examples
 │   ├── gateway-api.md                     #   Gateway API CRDs & controller support
+│   ├── alb-migration.md                   #   NGINX→ALB annotation mapping & phases
+│   ├── atx-guide.md                       #   AWS Transform automated migration guide
 │   └── report-generation.md               #   Report template & generation rules
+├── samples/                               # Before/after manifest examples
+│   ├── nginx/                             #   8 sample NGINX Ingress manifests
+│   └── alb/                               #   8 ATX-migrated ALB equivalents
+├── atx/                                   # AWS Transform (ATX) package
+│   └── td_ingress-nginx-lbc/              #   Transform Definition for automated migration
+│       ├── transformation_definition.md   #     TD instruction set
+│       ├── summaries.md                   #     Document summaries
+│       └── document_references/           #     Source reference material
 ├── tools/
 │   └── report_to_html.py                  # MD → HTML with Three.js 3D topology
 └── reports/                               # Generated reports (gitignored)

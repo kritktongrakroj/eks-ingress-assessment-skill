@@ -11,12 +11,13 @@ This skill assesses your live EKS cluster's current Ingress architecture and eva
 
 **This is an assessment tool, not a decision-maker.** The skill presents findings and options — the migration strategy and readiness decision belongs to the user's DevOps team.
 
-**Migration options assessed (Gateway API is the primary quick-win, others may be added):**
+**Migration options assessed:**
 
 | Option | Status | Notes |
 |--------|--------|-------|
-| Gateway API (HTTPRoute + Gateway) | Assessed | Official Kubernetes successor to Ingress. AWS LB Controller v2.7+ supports it. |
-| Other options | Future | Additional migration paths can be added as the skill evolves. |
+| Gateway API (HTTPRoute + Gateway) | ✅ Assessed | Official Kubernetes successor to Ingress. AWS LB Controller v2.7+ supports it. |
+| AWS Load Balancer Controller (ALB Ingress) | ✅ Assessed | Stay on Ingress API but swap NGINX→ALB. Gets WAF, Cognito, Shield. |
+| AWS Transform (ATX) — Automated | ✅ Included | TD included. For customers with ATX access — fully automated manifest rewriting. |
 
 ## Workflow
 
@@ -32,7 +33,8 @@ Pre-flight → Assess (7 sections) → Current Architecture Topology → Dual Re
    - **HTML** (visual summary) — interactive dashboard with 3D current architecture view, collapsible sections
 5. **Export Manifests** — Generate ready-to-apply YAML files:
    - `current/` — existing Ingress resources (clean, no status fields)
-   - `target/` — Gateway API resources (GatewayClass, Gateway, HTTPRoute) in apply order
+   - `target/gateway-api/` — Gateway API resources (GatewayClass, Gateway, HTTPRoute) in apply order
+   - `target/alb/` — ALB Controller Ingress resources (converted annotations)
 
 **Important:** After assessment completes, proceed directly to report generation and manifest export. Do NOT pause to ask the user — generate all outputs automatically.
 
@@ -54,7 +56,7 @@ Pre-flight → Assess (7 sections) → Current Architecture Topology → Dual Re
 | Overview | Cluster info table, Executive Summary (bullet points), 3D Current Architecture |
 | Assessment Summary | Assessment Summary table, Current Configuration, Ingress Discovery |
 | Routing Topology | Routing table (per-route line items), Traffic & Routing |
-| Migration Approach | Migration Options — Gateway API phases (steps only, no code), Export Manifests button |
+| Migration Approach | Migration Options — Gateway API phases, ALB Controller path, ATX automated path, Export Manifests button |
 | Appendix | Blockers, Recommendations, Investigate Manually, Ingress Resource Analysis, DNS & Certificates, Migration Risk, Migration Planning, AWS Reference Links |
 
 ## Steering Files
@@ -63,7 +65,7 @@ Before executing checks for any section, read the corresponding steering file fr
 
 | User Request | Steering File |
 |---|---|
-| Full migration assessment | ALL files in order (skip gateway-api.md) |
+| Full migration assessment | ALL files in order (skip gateway-api.md, alb-migration.md, atx-guide.md) |
 | What ingress controllers do I have? | `steering/ingress-discovery.md` |
 | Analyze my Ingress resources | `steering/ingress-resources.md` |
 | DNS / certs / TLS | `steering/dns-certificates.md` |
@@ -71,6 +73,8 @@ Before executing checks for any section, read the corresponding steering file fr
 | Migration risks | `steering/migration-risk.md` |
 | Migration plan | `steering/migration-plan.md` |
 | Generate report | `steering/report-generation.md` |
+| ALB Controller migration path | `steering/alb-migration.md` |
+| AWS Transform (ATX) automated path | `steering/atx-guide.md` |
 
 ## Tool Usage Rules
 
@@ -277,10 +281,12 @@ For each cluster that has Ingress resources, generate manifest files:
 
 **Rules:**
 1. `current/` — Each Ingress as clean YAML (strip status, managedFields, resourceVersion, uid, creationTimestamp, generation)
-2. `target/` — Generated Gateway API manifests in numbered apply order with comments
-3. `00-gateway-api-crds.yaml` — Comment-only file with install command
-4. All manifests must be valid `kubectl apply -f` ready
-5. Skip clusters with 0 Ingress resources (nothing to export)
+2. `target/gateway-api/` — Generated Gateway API manifests in numbered apply order with comments
+3. `target/alb/` — Generated ALB Controller Ingress manifests (annotation-converted)
+4. `00-gateway-api-crds.yaml` — Comment-only file with install command
+5. All manifests must be valid `kubectl apply -f` ready
+6. Skip clusters with 0 Ingress resources (nothing to export)
+7. For ALB target, apply annotation mapping from `steering/alb-migration.md`
 
 ## Rating Rubric
 
@@ -299,7 +305,7 @@ All files go to `~/ingress_migration/`.
 |------|---------|
 | Markdown (per cluster) | `EKS-Ingress-Migration-<cluster>-<YYYY-MM-DD>-<HHMM>.md` |
 | Topology (per cluster) | `<cluster>-topology.json` |
-| Manifests (per cluster) | `<cluster>-manifests/current/*.yaml` + `<cluster>-manifests/target/*.yaml` |
+| Manifests (per cluster) | `<cluster>-manifests/current/*.yaml` + `<cluster>-manifests/target/gateway-api/*.yaml` + `<cluster>-manifests/target/alb/*.yaml` |
 | HTML (combined) | `EKS-Ingress-Migration-<YYYY-MM-DD>-<HHMM>.html` |
 
 The single HTML report contains all clusters with a **dropdown selector** in the left nav. Switching clusters swaps the content and 3D topology view. The Migration Approach section includes an **Export Manifests** button that downloads the manifest files as a zip.
