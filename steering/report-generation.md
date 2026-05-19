@@ -24,11 +24,11 @@ Compile ALL findings from sections 1–7. Every item must appear. No item may be
 
 ## Step 3: Write Topology JSON
 
-Save to `~/ingress_migration/<cluster>-topology.json`. Include nodes (EC2 instances).
+Save to `~/ingress_migration/<cluster>/topology.json`. Include nodes (EC2 instances).
 
 ## Step 4: Write Markdown Report
 
-**Filename:** `~/ingress_migration/EKS-Ingress-Migration-<cluster>-<YYYY-MM-DD>-<HHMM>.md`
+**Filename:** `~/ingress_migration/<cluster>/report.md`
 
 ### Content Rules (MANDATORY)
 
@@ -170,6 +170,87 @@ Gateway API is the official Kubernetes successor to Ingress. AWS LB Controller v
 
 ---
 
+### Option 2: AWS Load Balancer Controller (ALB Ingress)
+
+Stay on the Ingress API but swap NGINX annotations for ALB annotations. Gets you WAF, Cognito/OIDC, Shield integration without adopting Gateway API.
+
+**When to choose:** Team not ready for Gateway API, needs ALB features immediately, or has many Ingress resources to convert quickly.
+
+#### Annotation Conversion Summary
+
+| NGINX Annotation | ALB Equivalent |
+|-----------------|----------------|
+| `ingressClassName: nginx` | `ingressClassName: alb` |
+| `nginx...rewrite-target: /$2` | `alb...transforms.<svc>` (url-rewrite JSON) |
+| `spec.tls[].secretName` | `alb...certificate-arn` or `certificate-discovery: "true"` |
+| `nginx...ssl-redirect: "true"` | `alb...ssl-redirect: "443"` |
+| `nginx...proxy-read-timeout` | `alb...target-group-attributes: idle_timeout.timeout_seconds=N` |
+| `nginx...auth-url` | `alb...auth-type: oidc` + `auth-idp-oidc` JSON |
+| `nginx...enable-cors` | Remove — use AWS WAF or app-level |
+| `nginx...whitelist-source-range` | `alb...scheme: internal` + security groups |
+| `nginx...proxy-body-size` | Remove — app-level config |
+
+#### Migration Steps
+
+| Step | Action | Validation |
+|------|--------|-----------|
+| 1 | Install AWS LB Controller v2.7+ | `kubectl get deploy -n kube-system aws-load-balancer-controller` |
+| 2 | Provision ACM certificates | `aws acm list-certificates` — all ISSUED |
+| 3 | Convert annotations per mapping above | `kubectl apply --dry-run=client -f <file>` |
+| 4 | Deploy migrated Ingress (new ALB created) | `kubectl get ingress -A` shows ALB address |
+| 5 | DNS weighted routing: shift traffic CLB→ALB | `dig <host>` resolves to new ALB |
+| 6 | Remove NGINX controller + orphaned TLS Secrets | `kubectl delete deploy -n ingress-nginx ingress-nginx-controller` |
+
+#### Per-Ingress Conversion Table
+
+| Ingress | Namespace | Key Changes | Complexity |
+|---------|-----------|-------------|-----------|
+| [name] | [ns] | [e.g., "rewrite→transforms, TLS→ACM"] | [Low/Medium/High] |
+
+> **Manifests exported to:** `<cluster>-manifests/target/alb/`
+
+---
+
+### Option 3: AWS Transform (ATX) — Automated
+
+For customers with AWS Transform access — fully automated manifest rewriting. ATX reads the included Transform Definition and converts all NGINX Ingress manifests to ALB annotations automatically.
+
+**When to choose:** Many Ingress resources (>10), want consistent automated output, have ATX workspace access.
+
+#### How It Works
+
+| Step | Action | Who |
+|------|--------|-----|
+| 1 | Upload TD from `atx/td_ingress-nginx-lbc/transformation_definition.md` | You |
+| 2 | Point ATX at your Ingress manifest repository | You |
+| 3 | ATX scans, converts, validates automatically | ATX |
+| 4 | Review diff and merge | You |
+| 5 | Deploy + DNS cutover | You |
+
+#### What ATX Converts
+
+| Pattern | Before (NGINX) | After (ALB) |
+|---------|----------------|-------------|
+| IngressClass | `nginx` | `alb` |
+| URI Rewrite | `rewrite-target` + regex | `transforms.<svc>` JSON |
+| TLS | K8s Secrets | ACM `certificate-arn` |
+| Auth | `auth-url` | `auth-type: oidc` |
+| CORS | `enable-cors` | Removed (WAF/app) |
+| Internal | `whitelist-source-range` | `scheme: internal` |
+
+#### ATX Validation (Automatic)
+
+- ✅ No `ingressClassName: nginx` remains
+- ✅ No `nginx.ingress.kubernetes.io/*` annotations
+- ✅ All rewrites use valid `transforms.<svc>` JSON
+- ✅ All TLS ingresses have ACM + ssl-redirect + ssl-policy
+- ✅ `kubectl apply --dry-run=client` passes
+
+> **TD location:** `atx/td_ingress-nginx-lbc/transformation_definition.md`
+> **Contact:** AWS account team for ATX workspace onboarding
+
+---
+
 ## Blockers
 
 | Finding | Action Required | Effort |
@@ -259,7 +340,7 @@ Do NOT fabricate URLs beyond this list.
 - **Overview:** Information table, Executive Summary, 3D Architecture
 - **Assessment Summary:** Assessment Summary table, Current Configuration, Ingress Discovery
 - **Routing Topology:** Routing Topology table, Traffic & Routing
-- **Migration Approach:** Migration Options (Gateway API phases — steps only, no code), Export Manifests (download button)
+- **Migration Approach:** Migration Options (Option 1: Gateway API phases, Option 2: ALB Controller with annotation table, Option 3: ATX automated), Export Manifests (download button)
 - **Appendix:** Blockers, Recommendations, Investigate Manually, Ingress Resource Analysis, DNS & Certificates, Migration Risk, Migration Planning, AWS Reference Links
 
 Note: Gateway API Readiness is intentionally excluded as a standalone section — it biases toward a single migration path. Gateway API details are covered in the Migration Options section.
@@ -270,12 +351,16 @@ After ALL cluster markdown reports are written, generate a **single combined HTM
 
 ```bash
 # Single cluster
-python3 /home/krittong/my-workspace/ingressmigration/tools/report_to_html.py ~/ingress_migration/<report>.md --topology ~/ingress_migration/<cluster>-topology.json
+python3 /home/krittong/my-workspace/ingressmigration/tools/report_to_html.py \
+  ~/ingress_migration/<cluster>/report.md \
+  --topology ~/ingress_migration/<cluster>/topology.json \
+  --manifests ~/ingress_migration/<cluster>/manifests
 
 # Multiple clusters — one HTML with cluster dropdown
 python3 /home/krittong/my-workspace/ingressmigration/tools/report_to_html.py \
-  ~/ingress_migration/report-a.md ~/ingress_migration/report-b.md \
-  --topology ~/ingress_migration/topo-a.json ~/ingress_migration/topo-b.json \
+  ~/ingress_migration/cluster-a/report.md ~/ingress_migration/cluster-b/report.md \
+  --topology ~/ingress_migration/cluster-a/topology.json ~/ingress_migration/cluster-b/topology.json \
+  --manifests ~/ingress_migration/cluster-a/manifests ~/ingress_migration/cluster-b/manifests \
   -o ~/ingress_migration/EKS-Ingress-Migration-<YYYY-MM-DD>-<HHMM>.html
 ```
 
@@ -285,25 +370,35 @@ Do NOT generate HTML manually. Always use the script.
 
 After generating the HTML report, export manifest files for each cluster:
 
-**Output directory:** `~/ingress_migration/<cluster>-manifests/`
+**Output directory:** `~/ingress_migration/<cluster>/manifests/`
 
 ```
-<cluster>-manifests/
-├── current/          # Existing Ingress resources as clean YAML (no status/managedFields)
-│   └── <namespace>-<ingress-name>.yaml
-└── target/           # Generated Gateway API resources ready to apply
-    ├── 00-gateway-api-crds.yaml      # kubectl apply -f URL (comment only)
-    ├── 01-gatewayclass.yaml
-    ├── 02-gateway.yaml
-    ├── 03-httproute-<name>.yaml      # One per Ingress conversion
-    └── 04-referencegrant-<name>.yaml # Only if cross-namespace
+~/ingress_migration/
+├── <cluster>/
+│   ├── report.md                              # Cluster markdown report
+│   ├── topology.json                          # Topology data for 3D view
+│   └── manifests/
+│       ├── current/                           # Existing Ingress resources (clean YAML)
+│       │   └── <namespace>-<ingress-name>.yaml
+│       └── target/
+│           ├── gateway-api/                   # Gateway API resources (apply order)
+│           │   ├── 00-gateway-api-crds.yaml
+│           │   ├── 01-gatewayclass.yaml
+│           │   ├── 02-gateway.yaml
+│           │   ├── 03-httproute-<name>.yaml
+│           │   └── 04-referencegrant-<name>.yaml  # Only if cross-namespace
+│           └── alb/                           # ALB Controller Ingress (converted)
+│               └── <namespace>-<ingress-name>.yaml
+├── EKS-Ingress-Migration-<YYYY-MM-DD>-<HHMM>.html  # Combined HTML (all clusters)
+└── ...
 ```
 
 **Rules:**
 1. `current/` — Extract each Ingress resource as YAML. Strip `status`, `managedFields`, `resourceVersion`, `uid`, `creationTimestamp`, `generation`. Keep only `apiVersion`, `kind`, `metadata.name`, `metadata.namespace`, `metadata.annotations`, `metadata.labels`, `spec`.
-2. `target/` — Generate Gateway API manifests based on assessment findings. Number-prefix for apply order. Include comments explaining what each resource does.
-3. The `00-gateway-api-crds.yaml` file should contain only a comment with the install command — not the actual CRD content.
-4. All manifests must be valid YAML that can be applied with `kubectl apply -f`.
-5. Inform the user: "Manifests exported to `~/ingress_migration/<cluster>-manifests/` — review and apply with `kubectl apply -f target/`"
+2. `target/gateway-api/` — Generate Gateway API manifests based on assessment findings. Number-prefix for apply order. Include comments explaining what each resource does.
+3. `target/alb/` — Generate ALB Controller Ingress manifests by applying the annotation mapping from `steering/alb-migration.md`. Each file mirrors the original Ingress but with ALB annotations.
+4. The `00-gateway-api-crds.yaml` file should contain only a comment with the install command — not the actual CRD content.
+5. All manifests must be valid YAML that can be applied with `kubectl apply -f`.
+6. Inform the user: "Manifests exported to `~/ingress_migration/<cluster>/manifests/` — review and apply with `kubectl apply -f target/gateway-api/` or `kubectl apply -f target/alb/`"
 
 **Pass manifests directory to HTML report tool** via `--manifests` flag so the HTML can offer a download button.

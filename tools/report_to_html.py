@@ -187,42 +187,57 @@ NAV_SECTIONS = [
 def _build_manifest_section(cluster_idx: int, cluster_name: str, manifests: dict) -> str:
     """Build HTML section with embedded manifest files and download buttons."""
     current_files = {k: v for k, v in manifests.items() if k.startswith("current/")}
-    target_files = {k: v for k, v in manifests.items() if k.startswith("target/")}
+    gw_files = {k: v for k, v in manifests.items() if k.startswith("target/gateway-api/")}
+    alb_files = {k: v for k, v in manifests.items() if k.startswith("target/alb/")}
+    # Fallback: old flat target/ structure
+    if not gw_files and not alb_files:
+        gw_files = {k: v for k, v in manifests.items() if k.startswith("target/")}
 
-    # Build file list tables
-    current_rows = ""
-    for fname, content in sorted(current_files.items()):
-        short = fname.replace("current/", "")
-        b64 = base64.b64encode(content.encode()).decode()
-        current_rows += f'<tr><td><code>{H.escape(short)}</code></td><td><a href="data:text/yaml;base64,{b64}" download="{H.escape(short)}">⬇ Download</a></td></tr>'
+    def _file_rows(files: dict, prefix: str) -> str:
+        rows = ""
+        for fname, content in sorted(files.items()):
+            short = fname.replace(prefix, "")
+            b64 = base64.b64encode(content.encode()).decode()
+            rows += f'<tr><td><code>{H.escape(short)}</code></td><td><a href="data:text/yaml;base64,{b64}" download="{H.escape(short)}">⬇ Download</a></td></tr>'
+        return rows
 
-    target_rows = ""
-    for fname, content in sorted(target_files.items()):
-        short = fname.replace("target/", "")
-        b64 = base64.b64encode(content.encode()).decode()
-        target_rows += f'<tr><td><code>{H.escape(short)}</code></td><td><a href="data:text/yaml;base64,{b64}" download="{H.escape(short)}">⬇ Download</a></td></tr>'
+    current_rows = _file_rows(current_files, "current/")
+    gw_rows = _file_rows(gw_files, "target/gateway-api/" if any(k.startswith("target/gateway-api/") for k in gw_files) else "target/")
+    alb_rows = _file_rows(alb_files, "target/alb/")
 
-    # Combined zip-like download (all files concatenated with separators)
-    all_target = ""
-    for fname, content in sorted(target_files.items()):
-        short = fname.replace("target/", "")
-        all_target += f"---\n# Source: {short}\n{content}\n"
-    all_b64 = base64.b64encode(all_target.encode()).decode() if all_target else ""
+    # Combined download for gateway-api
+    all_gw = ""
+    for fname, content in sorted(gw_files.items()):
+        short = fname.split("/")[-1]
+        all_gw += f"---\n# Source: {short}\n{content}\n"
+    gw_b64 = base64.b64encode(all_gw.encode()).decode() if all_gw else ""
 
-    download_all_btn = ""
-    if all_b64:
-        download_all_btn = f'<a href="data:text/yaml;base64,{all_b64}" download="{H.escape(cluster_name)}-gateway-api-manifests.yaml" style="display:inline-block;margin:.8rem 0;padding:8px 16px;background:var(--accent);color:#fff;border-radius:var(--radius);text-decoration:none;font-family:Poppins,sans-serif;font-size:.8rem;font-weight:500;">⬇ Download All Target Manifests</a>'
+    # Combined download for alb
+    all_alb = ""
+    for fname, content in sorted(alb_files.items()):
+        short = fname.split("/")[-1]
+        all_alb += f"---\n# Source: {short}\n{content}\n"
+    alb_b64 = base64.b64encode(all_alb.encode()).decode() if all_alb else ""
+
+    gw_btn = f'<a href="data:text/yaml;base64,{gw_b64}" download="{H.escape(cluster_name)}-gateway-api-manifests.yaml" style="display:inline-block;margin:.5rem .5rem .5rem 0;padding:8px 16px;background:var(--accent);color:#fff;border-radius:var(--radius);text-decoration:none;font-family:Poppins,sans-serif;font-size:.8rem;font-weight:500;">⬇ Gateway API Manifests</a>' if gw_b64 else ""
+    alb_btn = f'<a href="data:text/yaml;base64,{alb_b64}" download="{H.escape(cluster_name)}-alb-manifests.yaml" style="display:inline-block;margin:.5rem .5rem .5rem 0;padding:8px 16px;background:#2563eb;color:#fff;border-radius:var(--radius);text-decoration:none;font-family:Poppins,sans-serif;font-size:.8rem;font-weight:500;">⬇ ALB Controller Manifests</a>' if alb_b64 else ""
+
+    alb_section = ""
+    if alb_rows:
+        alb_section = f'''<h3>Target: ALB Controller</h3>
+<div class='table-wrap'><table><thead><tr><th>File</th><th>Action</th></tr></thead><tbody>{alb_rows}</tbody></table></div>'''
 
     return f'''<details class="section" data-section="export-manifests" open>
 <summary><h2>Export Manifests</h2><span class="toggle">▼</span></summary>
 <div class="section-body">
 <p style="font-size:.9rem;color:var(--text2);margin-bottom:1rem;">Ready-to-apply YAML manifests generated from the assessment. Review before applying.</p>
-{download_all_btn}
+{gw_btn}{alb_btn}
 <h3>Current Ingress (backup)</h3>
 {"<div class='table-wrap'><table><thead><tr><th>File</th><th>Action</th></tr></thead><tbody>" + current_rows + "</tbody></table></div>" if current_rows else "<p style='color:var(--text2);font-size:.85rem;'>No Ingress resources to export.</p>"}
-<h3>Target Gateway API</h3>
-{"<div class='table-wrap'><table><thead><tr><th>File</th><th>Action</th></tr></thead><tbody>" + target_rows + "</tbody></table></div>" if target_rows else "<p style='color:var(--text2);font-size:.85rem;'>No target manifests generated.</p>"}
-<blockquote>Apply target manifests in order: <code>kubectl apply -f 00-gateway-api-crds.yaml</code> then <code>01-</code>, <code>02-</code>, etc.</blockquote>
+<h3>Target: Gateway API</h3>
+{"<div class='table-wrap'><table><thead><tr><th>File</th><th>Action</th></tr></thead><tbody>" + gw_rows + "</tbody></table></div>" if gw_rows else "<p style='color:var(--text2);font-size:.85rem;'>No Gateway API manifests generated.</p>"}
+{alb_section}
+<blockquote>Apply Gateway API manifests in order: <code>kubectl apply -f 00-gateway-api-crds.yaml</code> then <code>01-</code>, <code>02-</code>, etc.<br>Apply ALB manifests: <code>kubectl apply -f target/alb/</code></blockquote>
 </div>
 </details>'''
 

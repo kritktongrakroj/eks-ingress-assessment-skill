@@ -299,25 +299,40 @@ For each cluster that has Ingress resources, generate manifest files:
 
 ## Report Output
 
-All files go to `~/ingress_migration/`.
+All files go to `~/ingress_migration/` organized by cluster:
 
-| File | Pattern |
-|------|---------|
-| Markdown (per cluster) | `EKS-Ingress-Migration-<cluster>-<YYYY-MM-DD>-<HHMM>.md` |
-| Topology (per cluster) | `<cluster>-topology.json` |
-| Manifests (per cluster) | `<cluster>-manifests/current/*.yaml` + `<cluster>-manifests/target/gateway-api/*.yaml` + `<cluster>-manifests/target/alb/*.yaml` |
-| HTML (combined) | `EKS-Ingress-Migration-<YYYY-MM-DD>-<HHMM>.html` |
+```
+~/ingress_migration/
+├── <cluster>/
+│   ├── report.md                    # Detailed markdown report
+│   ├── topology.json                # Topology data for 3D view
+│   └── manifests/
+│       ├── current/                 # Existing Ingress YAML (backup)
+│       │   └── <ns>-<ingress>.yaml
+│       └── target/
+│           ├── gateway-api/         # Gateway API resources (apply order)
+│           │   ├── 00-gateway-api-crds.yaml
+│           │   ├── 01-gatewayclass.yaml
+│           │   ├── 02-gateway.yaml
+│           │   └── 03-httproute-<name>.yaml
+│           └── alb/                 # ALB Controller Ingress (converted)
+│               └── <ns>-<ingress>.yaml
+└── EKS-Ingress-Migration-<YYYY-MM-DD>-<HHMM>.html  # Combined HTML (all clusters)
+```
 
-The single HTML report contains all clusters with a **dropdown selector** in the left nav. Switching clusters swaps the content and 3D topology view. The Migration Approach section includes an **Export Manifests** button that downloads the manifest files as a zip.
+The single HTML report contains all clusters with a **dropdown selector** in the left nav. Switching clusters swaps the content and 3D topology view. The Migration Approach section includes **Export Manifests** buttons for both Gateway API (orange) and ALB Controller (blue) downloads.
 
 **CLI usage:**
 ```bash
 # Single cluster
-python3 tools/report_to_html.py report.md --topology topo.json --manifests cluster-manifests/
+python3 tools/report_to_html.py ~/ingress_migration/<cluster>/report.md \
+  --topology ~/ingress_migration/<cluster>/topology.json \
+  --manifests ~/ingress_migration/<cluster>/manifests/
 
 # Multiple clusters — one HTML with dropdown
-python3 tools/report_to_html.py cluster-a.md cluster-b.md \
-  --topology topo-a.json topo-b.json \
-  --manifests cluster-a-manifests cluster-b-manifests \
-  -o combined.html
+python3 tools/report_to_html.py \
+  ~/ingress_migration/cluster-a/report.md ~/ingress_migration/cluster-b/report.md \
+  --topology ~/ingress_migration/cluster-a/topology.json ~/ingress_migration/cluster-b/topology.json \
+  --manifests ~/ingress_migration/cluster-a/manifests ~/ingress_migration/cluster-b/manifests \
+  -o ~/ingress_migration/EKS-Ingress-Migration-<YYYY-MM-DD>-<HHMM>.html
 ```
