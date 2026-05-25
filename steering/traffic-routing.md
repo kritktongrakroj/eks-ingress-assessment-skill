@@ -35,7 +35,7 @@ Assess routing complexity and map current patterns to Gateway API HTTPRoute equi
 **Report output format:** In the report's "Current Config" column, show actual config as compact 1-liner:
 `Ingress/<name>: <host><path> → <backend>:<port> (<pathType>, TLS:<yes/no>)`
 Example: `Ingress/shopping-app: /*→frontend:80 (Prefix, TLS:no)`
-Example: `Ingress/nginx-alb: quicksuite.krittong.people.aws.dev/* → nginx-service:80 (Prefix, TLS:ACM)`
+Example: `Ingress/nginx-alb: app.example.com/* → nginx-service:80 (Prefix, TLS:ACM)`
 
 ### 5.2 — Advanced Traffic Features
 

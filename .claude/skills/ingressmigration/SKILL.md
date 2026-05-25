@@ -97,14 +97,10 @@ Before executing checks for any section, read the corresponding steering file fr
 
 ## Skill Home Directory
 
-All relative paths in this skill (steering files, tools) are relative to the **skill project root**:
+All relative paths in this skill (steering files, tools) are relative to the **skill project root** (the directory containing this SKILL.md's parent `.claude/` folder).
 
-```
-/home/krittong/my-workspace/ingressmigration/
-```
-
-When the skill says `steering/ingress-discovery.md`, read `/home/krittong/my-workspace/ingressmigration/steering/ingress-discovery.md`.
-When the skill says `tools/report_to_html.py`, run `/home/krittong/my-workspace/ingressmigration/tools/report_to_html.py`.
+When the skill says `steering/ingress-discovery.md`, read `<project-root>/steering/ingress-discovery.md`.
+When the skill says `tools/report_to_html.py`, run `<project-root>/tools/report_to_html.py`.
 
 Reports are written to `~/ingress_migration/`.
 
@@ -250,7 +246,7 @@ Read `steering/report-generation.md` and produce a **markdown report per cluster
 After ALL cluster markdown reports are written, generate a **single combined HTML report**:
 
 ```bash
-python3 /home/krittong/my-workspace/ingressmigration/tools/report_to_html.py \
+python3 tools/report_to_html.py \
   ~/ingress_migration/report-cluster-a.md ~/ingress_migration/report-cluster-b.md \
   --topology ~/ingress_migration/cluster-a-topology.json ~/ingress_migration/cluster-b-topology.json \
   --manifests ~/ingress_migration/cluster-a-manifests ~/ingress_migration/cluster-b-manifests \

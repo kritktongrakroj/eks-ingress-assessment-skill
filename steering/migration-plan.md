@@ -91,7 +91,7 @@ Generate a concrete, phased migration plan from Ingress to Gateway API based on 
 **Report output format:** In the report's "Target Config" column, show the equivalent Gateway API config as compact 1-liner:
 `HTTPRoute/<name>: parentRef=<gateway>, hostnames=[<host>], path=<path> → <backend>:<port>`
 Example: `HTTPRoute/shopping-app-route: parentRef=main-gateway, path=/* → frontend:80`
-Example: `HTTPRoute/nginx-app-route: parentRef=main-gateway, hostnames=[quicksuite.krittong.people.aws.dev], path=/* → nginx-service:80`
+Example: `HTTPRoute/nginx-app-route: parentRef=main-gateway, hostnames=[app.example.com], path=/* → nginx-service:80`
 
 ### Phase 3: Traffic Cutover (Week 4)
 

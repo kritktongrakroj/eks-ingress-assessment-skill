@@ -351,13 +351,13 @@ After ALL cluster markdown reports are written, generate a **single combined HTM
 
 ```bash
 # Single cluster
-python3 /home/krittong/my-workspace/ingressmigration/tools/report_to_html.py \
+python3 tools/report_to_html.py \
   ~/ingress_migration/<cluster>/report.md \
   --topology ~/ingress_migration/<cluster>/topology.json \
   --manifests ~/ingress_migration/<cluster>/manifests
 
 # Multiple clusters — one HTML with cluster dropdown
-python3 /home/krittong/my-workspace/ingressmigration/tools/report_to_html.py \
+python3 tools/report_to_html.py \
   ~/ingress_migration/cluster-a/report.md ~/ingress_migration/cluster-b/report.md \
   --topology ~/ingress_migration/cluster-a/topology.json ~/ingress_migration/cluster-b/topology.json \
   --manifests ~/ingress_migration/cluster-a/manifests ~/ingress_migration/cluster-b/manifests \

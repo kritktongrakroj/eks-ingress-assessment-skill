@@ -5,6 +5,8 @@
 [![Claude Code](https://img.shields.io/badge/Claude_Code-skill-orange.svg)](https://docs.anthropic.com/en/docs/claude-code)
 [![Kiro CLI](https://img.shields.io/badge/Kiro_CLI-skill-purple.svg)](https://kiro.dev)
 
+> ⚠️ **Important:** This is sample code for demonstration and educational purposes only. It is not intended for production use without additional security testing and review. Use at your own risk.
+
 A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) / [Kiro CLI](https://kiro.dev) skill that performs automated EKS Ingress migration assessments. It connects to live EKS clusters, discovers all Ingress resources, rates migration readiness across 7 areas, and generates an interactive HTML report with 3D topology visualization and ready-to-apply manifests.
 
 **Three migration paths supported:**
