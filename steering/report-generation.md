@@ -44,7 +44,7 @@ Save to `~/ingress_migration/<cluster>/topology.json`. Include nodes (EC2 instan
 11. **Lead with impact.** Order Executive Summary bullets and Assessment Summary rows from highest impact to lowest.
 12. **Download buttons (renderer tokens):** drop `[[DL:gateway-api]]`, `[[DL:alb]]`, `[[DL:atx]]`, or `[[DL:current]]` anywhere in the markdown — the renderer replaces each with a one-click download button for that option's combined routing config (built from the exported manifests). Prefer a download button over printing long target/current config text.
 13. **In-page anchor links:** write `[blocker](#blockers)` to link to a section — the renderer auto-scopes the anchor to the cluster (e.g. `#c0-blockers`). Use this wherever the text says "see Blockers".
-14. **Impact everywhere, by the rubric:** Assessment Summary, Ingress Discovery, Routing Topology, Traffic & Routing, Blockers, Recommendations, Ingress Resource Analysis, DNS & Certificates Analysis, Migration Risk and Migration Planning all use the **Impact 1–5** scale (🟡1-2 / 🟠3-4 / 🔴5) — never GREEN/AMBER/RED. Every score MUST be justified against the **Impact Indicator** rubric (security/reputation · business/revenue · nature & effort), not ad-hoc judgement. Note: easy-to-deploy prerequisites (e.g. installing CRDs) are LOW even if they block a path.
+14. **Impact everywhere, by the rubric:** Assessment Summary, Ingress Discovery, Routing Topology, Traffic & Routing, Blockers, Recommendations, Ingress Resource Analysis, DNS & Certificates Analysis, Migration Risk all use the **Impact 1–5** scale (🟡1-2 / 🟠3-4 / 🔴5) — never GREEN/AMBER/RED. Every score MUST be justified against the **Impact Indicator** rubric (security/reputation · business/revenue · nature & effort), not ad-hoc judgement. Note: easy-to-deploy prerequisites (e.g. installing CRDs) are LOW even if they block a path.
 
 ### Report Template (follow EXACTLY)
 
@@ -363,16 +363,6 @@ For customers with AWS Transform access — fully automated manifest rewriting. 
 
 ---
 
-## Migration Planning
-
-| Item | Impact | Current State | Recommendation |
-|------|--------|---------------|----------------|
-| Migration Scope | [impact] | [summary] | - [action] |
-| Conversion Complexity per Route | [impact] | [summary] | - [action] |
-| Timeline Estimate | [impact] | [summary] | - [action] |
-
----
-
 ## AWS Reference Links
 
 | Topic | URL |
@@ -394,10 +384,11 @@ Do NOT fabricate URLs beyond this list.
 - **Overview:** Information table, Executive Summary (top), 3D Routing Diagram, Impact Indicator (rubric, just before Assessment Summary)
 - **Assessment Summary:** Assessment Summary table, Current Configuration, Ingress Discovery
 - **Routing Topology:** Routing Topology table, Traffic & Routing
-- **Migration Approach:** Migration Options (Option 1: Gateway API, Option 2: ALB Controller, Option 3: ATX — same panel + Phase 1–4 layout), **Blockers**, **Recommendations**, Export Manifests (download button)
-- **Analysis:** Ingress Resource Analysis, DNS & Certificates Analysis, Migration Risk, Migration Planning, AWS Reference Links
+- **Migration Approach:** Migration Options (Option 1: Gateway API, Option 2: ALB Controller, Option 3: ATX — same panel + Phase 1–4 layout), **Blockers**, **Recommendations**
+- **Analysis:** Ingress Resource Analysis, DNS & Certificates Analysis, Migration Risk
+- **References:** **Export Materials** (the generated manifests + download buttons, rendered by the tool), then **AWS Reference Links**
 
-Note: Blockers and Recommendations live under **Migration Approach** (they are decisions, not appendix material). There is no "Investigate Manually" section. The former "Appendix" group is named **Analysis**. Gateway API Readiness is intentionally excluded as a standalone section — Gateway API details live in Migration Options.
+Note: There is **no Migration Planning section** (scope/complexity/timeline fold into Migration Options and Blockers) and **no Investigate Manually section**. Blockers/Recommendations live under **Migration Approach**. The former "Appendix" is **Analysis**. **Export Materials** and **AWS Reference Links** live under **References** (Export Materials first). Gateway API Readiness is folded into Migration Options, not a standalone section.
 
 ## Step 5: Generate HTML Report
 
@@ -420,7 +411,7 @@ python3 tools/report_to_html.py \
 
 Do NOT generate HTML manually. Always use the script.
 
-## Step 6: Export Manifests
+## Step 6: Export Materials
 
 > **Directory contract (required by `report_to_html.py`):** lay manifests out as `current/`, `target/gateway-api/`, and `target/alb/` under the cluster's `manifests/` dir. The renderer recursively loads these subtrees (`rglob`) and powers the `[[DL:current]]` / `[[DL:gateway-api]]` / `[[DL:alb]]` download buttons — a flat `target/*.yaml` layout will not be found.
 

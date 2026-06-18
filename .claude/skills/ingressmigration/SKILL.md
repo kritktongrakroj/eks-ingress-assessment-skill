@@ -22,7 +22,7 @@ This skill assesses your live EKS cluster's current Ingress architecture and eva
 ## Workflow
 
 ```
-Pre-flight → Assess (7 sections) → Current Architecture Topology → Dual Report (md + html) → Export Manifests
+Pre-flight → Assess (7 sections) → Current Architecture Topology → Dual Report (md + html) → Export Materials
 ```
 
 1. **Pre-flight** — Discover cluster, validate permissions
@@ -31,7 +31,7 @@ Pre-flight → Assess (7 sections) → Current Architecture Topology → Dual Re
 4. **Dual Report** — Automatically generate both:
    - **Markdown** (detailed) — full findings, ratings, options, CLI commands
    - **HTML** (visual summary) — interactive dashboard with 3D Routing Diagram view, collapsible sections
-5. **Export Manifests** — Generate ready-to-apply YAML files:
+5. **Export Materials** — Generate ready-to-apply YAML files:
    - `current/` — existing Ingress resources (clean, no status fields)
    - `target/gateway-api/` — Gateway API resources (GatewayClass, Gateway, HTTPRoute) in apply order
    - `target/alb/` — ALB Controller Ingress resources (converted annotations)
@@ -47,7 +47,6 @@ Pre-flight → Assess (7 sections) → Current Architecture Topology → Dual Re
 | DNS & Certificates | external-dns, cert-manager, ACM — Gateway API source support |
 | Traffic & Routing | Routing patterns, advanced features, mapping to HTTPRoute |
 | Migration Risk | Downtime risk, feature gaps, rollback plan |
-| Migration Planning | Scope, conversion complexity, timeline estimate |
 
 ## Report Structure (5 Navigation Pages)
 
@@ -56,8 +55,9 @@ Pre-flight → Assess (7 sections) → Current Architecture Topology → Dual Re
 | Overview | Cluster info table, Executive Summary (top), 3D Routing Diagram, Impact Indicator (rubric, before Assessment Summary) |
 | Assessment Summary | Assessment Summary table (Impact-ordered), Current Configuration, Ingress Discovery |
 | Routing Topology | Routing table (per-route line items + Impact), Traffic & Routing |
-| Migration Approach | Migration Options (Option 1 Gateway API, Option 2 ALB, Option 3 ATX — consistent panels + per-option download buttons), Blockers, Recommendations, Export Manifests button |
-| Analysis | Ingress Resource Analysis, DNS & Certificates Analysis, Migration Risk, Migration Planning, AWS Reference Links |
+| Migration Approach | Migration Options (Option 1 Gateway API, Option 2 ALB, Option 3 ATX — consistent panels + per-option download buttons), Blockers, Recommendations |
+| Analysis | Ingress Resource Analysis, DNS & Certificates Analysis, Migration Risk |
+| References | Export Materials (generated manifests + download buttons), AWS Reference Links |
 
 ## Steering Files
 
@@ -275,7 +275,7 @@ The HTML report has a **cluster dropdown** in the left nav — selecting a clust
 
 **Always generate both.** Markdown files are the source of truth; the HTML is for presentation.
 
-### Step 10: Export Manifests (per cluster)
+### Step 10: Export Materials (per cluster)
 
 For each cluster that has Ingress resources, generate manifest files:
 
@@ -338,7 +338,7 @@ All files go to `~/ingress_migration/` organized by cluster:
 └── EKS-Ingress-Migration-<YYYY-MM-DD>-<HHMM>.html  # Combined HTML (all clusters)
 ```
 
-The single HTML report contains all clusters with a **dropdown selector** in the left nav. Switching clusters swaps the content and 3D routing diagram. The Migration Approach section includes **Export Manifests** buttons for both Gateway API (orange) and ALB Controller (blue) downloads.
+The single HTML report contains all clusters with a **dropdown selector** in the left nav. Switching clusters swaps the content and 3D routing diagram. The **References** section includes an **Export Materials** topic with download buttons for Gateway API and ALB Controller manifests.
 
 **CLI usage:**
 ```bash
