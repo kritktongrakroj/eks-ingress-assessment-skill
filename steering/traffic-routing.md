@@ -35,6 +35,8 @@ Assess routing complexity and map current patterns to Gateway API HTTPRoute equi
 - 🔴 5 (High): Heavy regex routing, >20 rules per Ingress, complex rewrite chains
 - ⬜ Unknown: Cannot parse routing rules
 
+> **Path-matching semantics change — converting regex/`ImplementationSpecific` → `PathPrefix` is NOT behavior-preserving.** ingress-nginx evaluates regex paths by **rule order / regex specificity**; ALB and Gateway API use **"most specific path wins."** A hard switch can silently route traffic to the **wrong backend** or yield **404s** that generic monitoring misses. Do **not** flip path types blindly: build a **routing comparison table** (every host+path → backend) for NGINX vs the target, and **shadow/replay** representative requests to confirm 100% match **before** cutover. Treat any cluster with regex/`ImplementationSpecific` paths as needing this validation step (raise its impact accordingly).
+
 **Report output format:** In the report's "Current Config" column, show actual config as compact 1-liner:
 `Ingress/<name>: <host><path> → <backend>:<port> (<pathType>, TLS:<yes/no>)`
 Example: `Ingress/shopping-app: /*→frontend:80 (Prefix, TLS:no)`

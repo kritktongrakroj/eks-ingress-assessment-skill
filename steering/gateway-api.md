@@ -14,6 +14,7 @@ Gateway API is the official successor to Ingress in Kubernetes. The Ingress reso
 Even when the LBC version is sufficient, do **not** present Gateway API as a frictionless drop-in:
 - **L7 feature parity is still maturing.** ALB Gateway API (HTTPRoute/GRPCRoute) reached support only in v2.14 and GA in the 2026 line; some **TLS handling and routing-filter** behaviours are not yet at parity with the mature Ingress API. Recommend verifying the specific filters/TLS options each route needs against the installed LBC version **before** committing to a cutover.
 - **EKS Auto Mode load-balancer ownership conflict.** If the cluster runs **both** Auto Mode's built-in controller (`eks.amazonaws.com`) **and** a self-managed AWS LB Controller (`gateway.k8s.aws/alb` / `ingress.k8s.aws/alb`) — as `eks-devops-sin` does — two reconcilers can contend for the **same** Gateway/Ingress. Scope ownership explicitly (distinct `GatewayClass`/`IngressClass` per controller) so they don't fight over a load balancer. Flag this whenever both are present.
+- **Gateway topology / blast radius.** Do **not** recommend collapsing all teams onto one shared Gateway to "save cost." A single Gateway concentrates blast radius — one team's broken `HTTPRoute` or overload degrades everyone. Recommend **per-security-boundary Gateways** (e.g. a `public-gateway` for general web, a separate `private-gateway` for `team-payments`), accepting extra cost for isolation.
 
 ## Checks to Execute
 

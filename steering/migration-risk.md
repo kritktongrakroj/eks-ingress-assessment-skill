@@ -58,11 +58,15 @@ Evaluate risk of migrating from Ingress to Gateway API.
 - Old Ingress resources preserved during migration (don't delete until validated)
 - Ingress resources version-controlled (Git)
 - GitOps rollback available (ArgoCD/Flux)
+- **Session affinity / stateful routing** — any Ingress using `nginx.ingress.kubernetes.io/affinity: cookie` (sticky sessions) or otherwise relying on connection/session state.
 
 **How to check:**
 1. Confirm old Ingress resources will be kept (not deleted)
 2. Check workspace for IaC files managing Ingress resources
 3. Check for ArgoCD/Flux managing Ingress resources
+4. Scan for `affinity: cookie` / `session-cookie-*` annotations (e.g. `legacy-mirror-sticky`).
+
+> **Sticky sessions break the rollback story.** GitOps revert is not a clean rollback for **stateful/sticky** ingresses: NGINX affinity cookies do not carry to an ALB (ALB uses its own `AWSALB`/`AWSALBCORS` cookie), so switching NGINX↔ALB — including a **rollback** — **drops every in-flight logged-in session**, a direct business impact. The architect must **externalize session state (e.g. Redis/central session store) before** the Ingress migration so traffic can move either direction without dropping users. Flag any sticky-session Ingress as a rollback-readiness risk and require a session-handling plan; rate it Medium+ accordingly.
 
 **Impact (per Impact Indicator):**
 - 🟡 1–2 (Low): Ingress resources in Git, GitOps managed, rollback = revert HTTPRoute + keep Ingress

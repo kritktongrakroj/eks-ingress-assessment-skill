@@ -69,6 +69,8 @@ alb.ingress.kubernetes.io/transforms.<service-name>: |
 
 **Post-migration:** Remove orphaned K8s TLS Secrets that are no longer referenced.
 
+> **Edge termination ≠ done — address the ALB→pod hop (Zero-Trust / compliance).** Moving TLS to ACM edge termination on the ALB and then sending **plaintext HTTP to pods** may **violate organizational/Zero-Trust requirements**, especially on EKS Auto Mode where in-cluster traffic is expected to be encrypted. When recommending edge termination, you MUST state how the ALB→backend hop is protected: e.g. `alb.ingress.kubernetes.io/backend-protocol: HTTPS` to pods, a `TargetGroupBinding` with HTTPS health/traffic, or a **service mesh (mTLS)**. Never present "terminate at ALB, plaintext to pods" as the finished state without calling out the in-cluster encryption decision.
+
 ### Proxy Timeouts
 
 | Before (NGINX) | After (ALB) |
@@ -124,6 +126,8 @@ To share a single ALB across multiple Ingress resources:
 alb.ingress.kubernetes.io/group.name: shared-alb
 alb.ingress.kubernetes.io/group.order: "10"
 ```
+
+> **Blast radius — do NOT default to one shared ALB/Gateway across all teams.** Consolidating `team-api`, `team-payments`, `team-web` onto a single shared ALB (or a single Gateway) maximizes blast radius: one team's broken route, bad annotation, or traffic overload degrades **everyone**. Split by **security boundary**, e.g. a `public` group/Gateway for general web and a separate **`private`/payments** group/Gateway for sensitive systems — accept the extra LB cost for isolation. Recommend grouping by trust/security boundary, not "one group to save money." This applies equally to Gateway API: prefer per-boundary `Gateway`s over a single shared listener.
 
 ## Migration Phases (ALB Path)
 
