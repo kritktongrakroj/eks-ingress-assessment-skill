@@ -321,7 +321,7 @@ def build_html(clusters: list[dict]) -> str:
             if slug in slugs or any(slug.startswith(s) for s in slugs):
                 nav_links += f'<a href="#{slug}">{H.escape(strip_bold(title))}</a>\n'
         if group_id == "overview":
-            nav_links += '<a href="#topo-wrap">3D Architecture</a>\n'
+            nav_links += '<a href="#c0-topo-wrap">3D Routing Diagram</a>\n'
 
     # Build per-cluster content divs
     cluster_divs = ""
@@ -330,7 +330,7 @@ def build_html(clusters: list[dict]) -> str:
         display = "block" if i == 0 else "none"
         topo_html = ""
         if c["topology_json"]:
-            topo_html = f'<div id="c{i}-topo-wrap" data-section="topo-wrap"><p class="hint">Drag to orbit · Scroll to zoom · Click a node for details <button id=\"anim-{i}\" style=\"margin-left:10px;padding:2px 10px;background:#13233f;color:#9fd0ff;border:1px solid #2c4a6e;border-radius:12px;cursor:pointer;font-size:.72rem\">▶ Animate</button></p><div id="topo-{i}" class="topo-canvas" style="width:100%;height:520px;border-radius:8px;overflow:hidden;border:1px solid var(--border);background:#0a0e14;"></div><div class="topo-info"></div><div class="topo-legend"><span><span class="dot" style="background:#8b949e"></span> Node · server</span><span><span class="dot" style="background:#ff9900"></span> Controller · hub+ring</span><span><span class="dot" style="background:#58a6ff"></span> Ingress · gateway portal</span><span><span class="dot" style="background:#2ea043"></span> Service · K8s hex + pods</span><span><span class="dot" style="background:#bc8cff"></span> Gateway API · portal</span><span><span class=\"dot\" style=\"background:#58a6ff\"></span> ━ Ingress→Service route (bold)</span></div></div>'
+            topo_html = f'<details class="section" open id="c{i}-topo-wrap" data-section="topo-wrap"><summary><h2>3D Routing Diagram</h2><span class="toggle">▾</span></summary><div class="section-body"><p class="hint">Drag to orbit · Scroll to zoom · Click a node for details <button id=\"anim-{i}\" style=\"margin-left:10px;padding:2px 10px;background:#13233f;color:#9fd0ff;border:1px solid #2c4a6e;border-radius:12px;cursor:pointer;font-size:.72rem\">▶ Animate</button></p><div id="topo-{i}" class="topo-canvas" style="width:100%;height:520px;border-radius:8px;overflow:hidden;border:1px solid var(--border);background:#0a0e14;"></div><div class="topo-info"></div><div class="topo-legend"><span><span class="dot" style="background:#8b949e"></span> Node · server</span><span><span class="dot" style="background:#ff9900"></span> Controller · hub+ring</span><span><span class="dot" style="background:#58a6ff"></span> Ingress · gateway portal</span><span><span class="dot" style="background:#2ea043"></span> Service · K8s hex + pods</span><span><span class="dot" style="background:#bc8cff"></span> Gateway API · portal</span><span><span class=\"dot\" style=\"background:#58a6ff\"></span> ━ Ingress→Service route (bold)</span></div></div></details>'
             topo_data_array.append(c["topology_json"])
         else:
             topo_data_array.append("null")
@@ -346,7 +346,17 @@ def build_html(clusters: list[dict]) -> str:
             body = body.replace(tok, html)
         body = re.sub(r"\[\[DL:[a-z-]+\]\]", "", body)  # strip any unmatched placeholders
 
-        cluster_divs += f'<div class="cluster-panel" id="cluster-{i}" style="display:{display}">\n{topo_html}\n{body}\n{manifest_html}\n</div>\n'
+        # place 3D Routing Diagram right AFTER the first section (Executive Summary)
+        if topo_html:
+            marker = "</div></details>"
+            pos = body.find(marker)
+            if pos != -1:
+                cut = pos + len(marker)
+                body = body[:cut] + "\n" + topo_html + "\n" + body[cut:]
+            else:
+                body = topo_html + "\n" + body
+
+        cluster_divs += f'<div class="cluster-panel" id="cluster-{i}" style="display:{display}">\n{body}\n{manifest_html}\n</div>\n'
 
     # Topology JS data
     topo_js_array = "[" + ",".join(topo_data_array) + "]"

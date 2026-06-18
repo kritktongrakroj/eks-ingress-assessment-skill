@@ -379,7 +379,7 @@ For customers with AWS Transform access — fully automated manifest rewriting. 
 Do NOT fabricate URLs beyond this list.
 
 **Section placement in nav:**
-- **Overview:** Information table, Executive Summary, 3D Architecture
+- **Overview:** Information table, Executive Summary (top), then 3D Routing Diagram
 - **Assessment Summary:** Assessment Summary table, Current Configuration, Ingress Discovery
 - **Routing Topology:** Routing Topology table, Traffic & Routing
 - **Migration Approach:** Migration Options (Option 1: Gateway API phases, Option 2: ALB Controller with annotation table, Option 3: ATX automated), Export Manifests (download button)

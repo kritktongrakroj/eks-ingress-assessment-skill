@@ -30,7 +30,7 @@ Pre-flight → Assess (7 sections) → Current Architecture Topology → Dual Re
 3. **Current Architecture** — Compile topology data into JSON for the HTML report's interactive 3D view (nodes, controllers, ingresses, services)
 4. **Dual Report** — Automatically generate both:
    - **Markdown** (detailed) — full findings, ratings, options, CLI commands
-   - **HTML** (visual summary) — interactive dashboard with 3D current architecture view, collapsible sections
+   - **HTML** (visual summary) — interactive dashboard with 3D Routing Diagram view, collapsible sections
 5. **Export Manifests** — Generate ready-to-apply YAML files:
    - `current/` — existing Ingress resources (clean, no status fields)
    - `target/gateway-api/` — Gateway API resources (GatewayClass, Gateway, HTTPRoute) in apply order
@@ -53,7 +53,7 @@ Pre-flight → Assess (7 sections) → Current Architecture Topology → Dual Re
 
 | Nav Page | Contains |
 |----------|----------|
-| Overview | Cluster info table, Executive Summary (bullet points), 3D Current Architecture |
+| Overview | Cluster info table, Executive Summary (top), 3D Routing Diagram |
 | Assessment Summary | Assessment Summary table, Current Configuration, Ingress Discovery |
 | Routing Topology | Routing table (per-route line items), Traffic & Routing |
 | Migration Approach | Migration Options — Gateway API phases, ALB Controller path, ATX automated path, Export Manifests button |
@@ -85,7 +85,7 @@ Before executing checks for any section, read the corresponding steering file fr
 5. **Only rate based on what was actually observed — never assume.**
 6. If a check fails or returns no data, mark UNKNOWN.
 7. Every RED finding must have a specific, actionable recommendation.
-8. **Collect topology data during assessment** — every Ingress host, path, backend, controller, namespace, and the nodes (EC2 instances). This feeds the 3D Current Architecture view.
+8. **Collect topology data during assessment** — every Ingress host, path, backend, controller, namespace, and the nodes (EC2 instances). This feeds the 3D Routing Diagram view.
 9. **Do NOT paste raw YAML/config in findings.** Summarize what was found.
 10. **Use tables for all structured data.** No prose lists of facts.
 11. **No filler text.** Go straight to content.
