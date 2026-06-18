@@ -73,6 +73,7 @@ Before executing checks for any section, read the corresponding steering file fr
 | Migration risks | `steering/migration-risk.md` |
 | Migration plan | `steering/migration-plan.md` |
 | Generate report | `steering/report-generation.md` |
+| Gateway API migration path / prerequisites | `steering/gateway-api.md` |
 | ALB Controller migration path | `steering/alb-migration.md` |
 | AWS Transform (ATX) automated path | `steering/atx-guide.md` |
 
