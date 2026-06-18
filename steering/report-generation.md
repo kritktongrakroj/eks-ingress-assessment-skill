@@ -3,7 +3,7 @@
 ## Purpose
 
 Generate dual-format assessment report matching the 5-section navigation structure:
-**Overview → Assessment Summary → Routing Topology → Migration Approach → Appendix**
+**Overview → Assessment Summary → Routing Topology → Migration Approach → Analysis**
 
 This is an **assessment report** — present findings and options, do not prescribe a single migration path.
 
@@ -15,9 +15,8 @@ Compile ALL findings from sections 1–7. Every item must appear. No item may be
 
 | Check | Fix |
 |-------|-----|
-| RED item missing from Blockers table | Add it |
-| AMBER item missing from Recommendations table | Add it |
-| UNKNOWN item missing from Investigate Manually table | Add it |
+| High-impact (5) item missing from Blockers table | Add it |
+| Medium-impact item missing from Recommendations table | Add it |
 | Executive Summary mentions wrong rating | Fix to match master list |
 | Prose paragraph that should be a table | Convert to table |
 | Raw YAML in findings (not Migration Approach) | Replace with summary |
@@ -295,49 +294,47 @@ For customers with AWS Transform access — fully automated manifest rewriting. 
 
 ## Blockers
 
-| Finding | Action Required | Effort |
-|---------|----------------|--------|
-| [finding name — rating] | [specific action] | [hours/days] |
+> Lives under **Migration Approach** (not Analysis). Finding name only — no "— RED" suffix. **Impact 1–5** (🟡1-2 / 🟠3-4 / 🔴5). **Action Required** is a bullet list — use `- item<br>  - sub-item` for sub-bullets. No Effort column (manday effort depends on team experience and can't be fixed reliably).
 
-> If no RED items exist, write: "No blockers identified."
+| Finding | Impact | Action Required |
+|---------|--------|-----------------|
+| [finding name] | [🔴 5] | - [action]<br>  - [sub-action] |
+
+> If no high-impact items exist, write: "No blockers identified."
 
 ---
 
 ## Recommendations
 
-| Finding | Action | Priority | Effort |
+> Lives under **Migration Approach**. **Impact 1–5** = how disruptive *implementing* the action is to the running app / production (🟡1-2 / 🟠3-4 / 🔴5). No Effort column.
+
+| Finding | Action | Priority | Impact |
 |---------|--------|----------|--------|
-| [finding name — rating] | [specific action] | [High/Medium/Low] | [hours/days] |
-
----
-
-## Investigate Manually
-
-| Item | Question to Answer |
-|------|--------------------|
-| [item name] | [what to check and why] |
-
-> If no UNKNOWN items exist, write: "All items were assessed successfully."
+| [finding name] | [specific action] | [High/Medium/Low] | [🟡/🟠/🔴 n] |
 
 ---
 
 ## Ingress Resource Analysis
 
-| Item | Rating | Current State | Recommendation | Reference |
-|------|--------|---------------|----------------|-----------|
-| Annotation Inventory & Mapping | [rating] | [summary] | [action] | [link] |
-| TLS Configuration | [rating] | [summary] | [action] | [link] |
-| Backend Service Compatibility | [rating] | [summary] | [action] | [link] |
+> **Impact 1–5** = severity *if left as-is* (not migrated). Usually low/medium — the app keeps running on NGINX today (🟡1-2 / 🟠3-4 / 🔴5). **Recommendation** is a bullet list (`- item<br>  - sub-item`). No Reference column.
+
+| Item | Impact | Current State | Recommendation |
+|------|--------|---------------|----------------|
+| Annotation Inventory & Mapping | [impact] | [summary] | - [action]<br>  - [sub-action] |
+| TLS Configuration | [impact] | [summary] | - [action] |
+| Backend Service Compatibility | [impact] | [summary] | - [action] |
 
 ---
 
-## DNS & Certificates
+## DNS & Certificates Analysis
 
-| Item | Rating | Current State | Recommendation | Reference |
-|------|--------|---------------|----------------|-----------|
-| external-dns Gateway API Support | [rating] | [summary] | [action] | [link] |
-| cert-manager Gateway Integration | [rating] | [summary] | [action] | [link] |
-| ACM Integration | [rating] | [summary] | [action] | [link] |
+> Same approach as Ingress Resource Analysis: **Impact 1–5** if left as-is (usually low — DNS/TLS still serve today), bullet **Recommendation**.
+
+| Item | Impact | Current State | Recommendation |
+|------|--------|---------------|----------------|
+| external-dns Gateway API Support | [impact] | [summary] | - [action] |
+| cert-manager Gateway Integration | [impact] | [summary] | - [action] |
+| ACM Integration | [impact] | [summary] | - [action] |
 
 ---
 
@@ -382,10 +379,10 @@ Do NOT fabricate URLs beyond this list.
 - **Overview:** Information table, Executive Summary (top), then 3D Routing Diagram
 - **Assessment Summary:** Assessment Summary table, Current Configuration, Ingress Discovery
 - **Routing Topology:** Routing Topology table, Traffic & Routing
-- **Migration Approach:** Migration Options (Option 1: Gateway API phases, Option 2: ALB Controller with annotation table, Option 3: ATX automated), Export Manifests (download button)
-- **Appendix:** Blockers, Recommendations, Investigate Manually, Ingress Resource Analysis, DNS & Certificates, Migration Risk, Migration Planning, AWS Reference Links
+- **Migration Approach:** Migration Options (Option 1: Gateway API, Option 2: ALB Controller, Option 3: ATX — same panel + Phase 1–4 layout), **Blockers**, **Recommendations**, Export Manifests (download button)
+- **Analysis:** Ingress Resource Analysis, DNS & Certificates Analysis, Migration Risk, Migration Planning, AWS Reference Links
 
-Note: Gateway API Readiness is intentionally excluded as a standalone section — it biases toward a single migration path. Gateway API details are covered in the Migration Options section.
+Note: Blockers and Recommendations live under **Migration Approach** (they are decisions, not appendix material). There is no "Investigate Manually" section. The former "Appendix" group is named **Analysis**. Gateway API Readiness is intentionally excluded as a standalone section — Gateway API details live in Migration Options.
 
 ## Step 5: Generate HTML Report
 

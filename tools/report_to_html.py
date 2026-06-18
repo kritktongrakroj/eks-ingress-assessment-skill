@@ -62,12 +62,25 @@ def md_table_to_html(lines: list[str]) -> str:
     headers = [c.strip() for c in lines[0].strip().strip("|").split("|")]
     col_count = len(headers)
     hdr = "".join(f"<th>{badge_wrap(strip_bold(H.escape(h)))}</th>" for h in headers)
+    def render_cell(c: str) -> str:
+        # cell with bullet markup ("- item<br>  - sub") -> nested <ul>
+        if re.search(r"(?:^|<br>)\s*[-*]\s", c):
+            items = []
+            for s in re.split(r"<br>", c):
+                m = re.match(r"^(\s*)[-*]\s(.*)$", s)
+                if m:
+                    items.append((len(m.group(1)), m.group(2)))
+                elif s.strip():
+                    items.append((0, s.strip()))
+            if items:
+                return render_list(items)
+        return inline(c)
     rows = ""
     for line in lines[2:]:
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
         while len(cells) < col_count:
             cells.append("")
-        rows += "<tr>" + "".join(f"<td>{inline(c)}</td>" for c in cells) + "</tr>"
+        rows += "<tr>" + "".join(f"<td>{render_cell(c)}</td>" for c in cells) + "</tr>"
     return f'<div class="table-wrap"><table><thead><tr>{hdr}</tr></thead><tbody>{rows}</tbody></table></div>'
 
 
@@ -195,6 +208,7 @@ tr:hover td{background:var(--bg)}
 .red{background:var(--red-bg);color:var(--red)} .unknown{background:#f0f0ec;color:var(--gray)}
 .orange{background:#fde7d3;color:#c2410c} .hot{color:var(--red);font-weight:700}
 li strong{color:var(--text)} ul ul{margin:.25rem 0 .35rem 1.6rem;list-style:circle}
+td ul{margin:.15rem 0 .15rem 1.1rem} td li{margin:.12rem 0}
 .hint{color:var(--text2);font-size:.8rem;margin-bottom:.5rem;font-style:italic}
 .topo-info{margin-top:.5rem;padding:.5rem .8rem;font-size:.85rem;color:var(--text2);min-height:1.6em;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border)}
 .topo-legend{display:flex;flex-wrap:wrap;gap:1rem;margin-top:.5rem;font-family:'Poppins',sans-serif;font-size:.75rem;color:var(--text2)}
@@ -209,8 +223,8 @@ NAV_SECTIONS = [
     ("overview", "Overview", ["executive-summary"]),
     ("assessment", "Assessment Summary", ["assessment-summary", "current-configuration", "ingress-discovery"]),
     ("routing", "Routing Topology", ["routing-topology", "traffic-routing"]),
-    ("migration", "Migration Approach", ["migration-options", "export-manifests"]),
-    ("appendix", "Appendix", ["blockers", "recommendations", "investigate-manually", "ingress-resource-analysis", "dns-certificates", "migration-risk", "migration-planning", "aws-reference-links"]),
+    ("migration", "Migration Approach", ["migration-options", "blockers", "recommendations", "export-manifests"]),
+    ("analysis", "Analysis", ["ingress-resource-analysis", "dns-certificates-analysis", "migration-risk", "migration-planning", "aws-reference-links"]),
 ]
 
 
