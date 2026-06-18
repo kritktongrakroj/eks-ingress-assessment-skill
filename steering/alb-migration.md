@@ -96,6 +96,8 @@ alb.ingress.kubernetes.io/transforms.<service-name>: |
 | `nginx...auth-url` + `nginx...auth-signin` | `alb.ingress.kubernetes.io/auth-type: oidc` |
 | (external auth service) | `alb.ingress.kubernetes.io/auth-idp-oidc: '{"issuer":"...","authorizationEndpoint":"...","tokenEndpoint":"...","userInfoEndpoint":"...","secretName":"..."}'` |
 
+> **🔴 Behavior change — NOT a like-for-like conversion (High impact).** Basic Auth (`auth-type: basic`, an `Authorization: Basic` header — commonly used by **scripts, cron jobs and machine/API clients**) → ALB **OIDC/Cognito** replaces header auth with an **interactive browser login redirect** to an Identity Provider. Every **non-interactive** caller (automation, CI, partner APIs) **breaks immediately**. This requires client re-architecture (e.g. OIDC client-credentials flow, app-level token auth, or mTLS) and stakeholder coordination — never present `auth-*` → OIDC as a simple annotation swap. Score it **High** and call out the affected client types.
+
 ### Body Size
 
 | Before (NGINX) | After (ALB) |
@@ -110,6 +112,10 @@ alb.ingress.kubernetes.io/transforms.<service-name>: |
 |----------------|-------------|
 | `nginx...whitelist-source-range: "10.0.0.0/8"` | `alb.ingress.kubernetes.io/scheme: internal` |
 | (IP restriction) | Use ALB security groups for IP-based access control |
+
+> **Verify before switching internet-facing → internal (High-risk if skipped):**
+> 1. **Subnet readiness (read-only):** an internal ALB needs private subnets tagged `kubernetes.io/role/internal-elb` in ≥2 AZs. Check `aws ec2 describe-subnets` for the cluster VPC; if absent, the internal ALB **will fail to provision**. Internet-facing ALBs likewise need `kubernetes.io/role/elb` tags.
+> 2. **External-consumer impact:** `whitelist-source-range` on an internet-facing endpoint still served **external** callers (partners, devices, off-cluster clients). Switching to `scheme: internal` makes it reachable **only from inside the VPC** — every external consumer is cut off. Confirm no off-VPC client depends on it, or keep it internet-facing and restrict via `alb.ingress.kubernetes.io/inbound-cidrs` / security groups instead. Do not silently convert a public allowlisted endpoint to internal.
 
 ### ALB Grouping (Cost Optimization)
 

@@ -87,6 +87,8 @@ Discover all ingress controllers, IngressClass resources, and Ingress objects in
 
 > Every controller version found MUST appear in the report (Current Configuration + Ingress Discovery), with EOL/CVE status called out — do not roll multiple controllers into one line.
 
+> **Remediation sequencing (SAFETY — do not get this wrong):** setting `allow-snippet-annotations: false` is a **breaking change** for any Ingress currently using snippet annotations — the controller drops those routes and can cause **immediate downtime**. If snippet-using ingresses exist (cross-check §3.1), you MUST NOT recommend disabling it as an "urgent / Day-1 / immediate" action. Sequence it **after** those routes are migrated or redesigned. The recommendation wording must read "re-disable snippet annotations **after** migrating the snippet routes", never "urgent: set false now". The same applies to retiring an EOL controller that still serves live routes — migrate first, retire last.
+
 ### 1.5 — EKS Auto Mode Detection
 
 **What to check (read-only):**

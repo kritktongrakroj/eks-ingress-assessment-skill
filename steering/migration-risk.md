@@ -20,13 +20,15 @@ Evaluate risk of migrating from Ingress to Gateway API.
 2. Check external-dns configuration for TTL
 3. Count active Ingress resources (migration scope)
 
-**Key insight:** Ingress and Gateway API resources are completely independent. You can run both simultaneously — the old Ingress keeps working while you create HTTPRoute equivalents and test them. Cutover is a DNS switch.
+**Key insight (and its limits):** Ingress and the new Gateway/ALB resources can *exist* side by side in the cluster — but **coexistence in the cluster ≠ safe gradual traffic shift.** NGINX usually sits behind a Classic/Network Load Balancer (L4); the target is a **new L7 ALB with a different DNS name**. You can only do weighted/gradual DNS shifting if the fronting DNS/LB architecture supports it. If it doesn't, the cutover is effectively **all-or-nothing**, or relies on **very low DNS TTLs** with real risk of **stale-DNS traffic hanging** on the old endpoint. Do **not** rate downtime Low merely because the two resource types can coexist.
+
+**Also check:** does a weighted/blue-green path actually exist (Route 53 weighted records / a shared front door), and what are the current DNS TTLs? If neither, flag the cutover as higher risk.
 
 **Impact (per Impact Indicator):**
-- 🟡 1–2 (Low): Low Ingress count, DNS automation in place, coexistence confirmed
-- 🟠 3–4 (Medium): High Ingress count makes phased migration complex but still zero-downtime
-- 🔴 5 (High): No DNS automation — manual DNS changes during cutover risk downtime
-- ⬜ Unknown: Cannot assess traffic patterns
+- 🟡 1–2 (Low): A real gradual-shift path exists (e.g. Route 53 weighted records or shared front door) **and** DNS automation/low TTL is in place.
+- 🟠 3–4 (Medium): Cross-architecture cutover (NGINX/L4 → new L7 ALB) with no proven weighted-shift path — plan a tight, low-TTL cutover window; partial-outage risk.
+- 🔴 5 (High): All-or-nothing cutover, no DNS automation, high TTLs, or business-critical hosts — manual DNS changes risk real downtime.
+- ⬜ Unknown: Cannot assess DNS/front-door architecture.
 
 ### 6.2 — Feature Gap Analysis
 

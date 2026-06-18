@@ -455,6 +455,9 @@ After generating the HTML report, export manifest files for each cluster:
 3. `target/alb/` — Generate ALB Controller Ingress manifests by applying the annotation mapping from `steering/alb-migration.md`. Each file mirrors the original Ingress but with ALB annotations.
 4. The `00-gateway-api-crds.yaml` file should contain only a comment with the install command — not the actual CRD content.
 5. All manifests must be valid YAML that can be applied with `kubectl apply -f`.
-6. Inform the user: "Manifests exported to `~/ingress_migration/<cluster>/manifests/` — review and apply with `kubectl apply -f target/gateway-api/` or `kubectl apply -f target/alb/`"
+6. **Snippet / blind-spot safety (CRITICAL):** if any source Ingress uses `configuration-snippet`/`server-snippet`/`modsecurity-snippet` (or §5.5 found snippet-injected routes), the generated target manifests are **incomplete** — they cannot represent snippet-injected `location`s (e.g. `/healthz`, deny `/internal/`). For every such Ingress you MUST:
+   - **Not** generate a silently-apply-ready target; instead emit a placeholder containing a prominent header comment `# INCOMPLETE — snippet-injected routes not represented; hand-port before applying` listing the missing paths/behaviours.
+   - Replace rule 7's wording for affected files with **"review & hand-port — DO NOT blind-apply"**. Blind-applying would drop health-check paths and access-control denies, breaking probes and exposing internal paths.
+7. Inform the user: "Manifests exported to `~/ingress_migration/<cluster>/manifests/`. Files for snippet-free ingresses are apply-ready (`kubectl apply -f …`); files flagged **INCOMPLETE** require manual hand-porting of snippet-injected routes first."
 
 **Pass manifests directory to HTML report tool** via `--manifests` flag so the HTML can offer a download button.
