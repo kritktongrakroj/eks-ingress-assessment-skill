@@ -207,6 +207,9 @@ For each cluster, run the full assessment:
 3. Briefly show topology summary, then proceed to Step 9
 
 **Topology JSON schema:**
+
+> **CRITICAL — controller naming contract:** Every `controllers[].name` MUST be exactly equal to the value used in `ingresses[].controller` (i.e. the IngressClass name: `nginx`, `alb`, `nginx-legacy`, etc.). The 3D view links each ingress to its controller by exact name match — if they differ, the ingress will render **unlinked** (the renderer no longer falls back to the first controller). Use `displayName` for the human-readable deployment name (e.g. `ingress-nginx-controller`); the 3D label prefers `displayName` when present.
+
 ```json
 {
   "cluster": "name",
@@ -215,7 +218,7 @@ For each cluster, run the full assessment:
     { "name": "ip-10-0-1-100.ec2.internal", "instanceId": "i-0abc123def456", "instanceType": "m5.xlarge", "zone": "ap-southeast-1a" }
   ],
   "controllers": [
-    { "name": "nginx", "namespace": "ingress-nginx", "version": "1.9.6", "type": "deployment" }
+    { "name": "nginx", "displayName": "ingress-nginx-controller", "namespace": "ingress-nginx", "version": "1.9.6", "type": "deployment" }
   ],
   "ingresses": [
     {

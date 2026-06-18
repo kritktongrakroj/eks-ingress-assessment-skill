@@ -39,8 +39,10 @@ Save to `~/ingress_migration/<cluster>/topology.json`. Include nodes (EC2 instan
 5. **No filler text.** Go straight to content.
 6. **No readiness score.** This is an assessment, not a scorecard.
 7. **No ASCII art diagrams.** The HTML has the 3D topology.
-8. **Multi-value cells:** when a cell has multiple items (e.g., namespaces, controllers), put each on its own line using `<br>` — not comma-separated.
-9. **Executive Summary must be bullet points** — precise and comprehensive, not paragraphs.
+8. **Multi-value cells in tables:** put each item on its own line using `<br>` (the renderer turns this into real line breaks). For **Current Configuration**, use nested bullet/sub-bullet lists instead of a table.
+9. **Executive Summary = one-shot understanding for a non-technical reader.** Top-level bullet per impact theme, indented sub-bullets for specifics. Bold the key term in each bullet; wrap the most damaging facts in `!! !!` (renders red).
+10. **Emphasis syntax (supported by the renderer):** `**bold**` for key terms, `!!red highlight!!` for high-impact / at-risk items, backticks for `versions/code`. Use sparingly — only words that carry the impact.
+11. **Lead with impact.** Order Executive Summary bullets and Assessment Summary rows from highest impact to lowest.
 
 ### Report Template (follow EXACTLY)
 
@@ -59,41 +61,57 @@ Save to `~/ingress_migration/<cluster>/topology.json`. Include nodes (EC2 instan
 
 ## Executive Summary
 
-- [Key finding 1 — what ingress controllers exist, how many Ingress resources]
-- [Key finding 2 — current architecture state]
-- [Key finding 3 — top blockers or issues found]
-- [Key finding 4 — Gateway API readiness status]
-- [Additional bullet points as needed — keep each precise and informative]
+> Write for a non-technical / low-tech reader — one glance must answer "how risky is this and why." Lead with the biggest impact. **Bold** the key noun in each bullet; wrap the most damaging facts in `!! !!` so they render red. Split any bullet that lists multiple items into indented sub-bullets.
+
+- **Ingress controllers:** [N] in use — !![the single biggest risk, e.g. one is End-of-Life with known CVEs]!!
+  - [Controller A] `vX` (modern)
+  - [Controller B] `vX` (modern)
+  - [Controller C] `vX` !!(EOL / unsupported)!!
+- **Biggest migration blocker:** !![the one thing most preventing a clean migration]!! — [one phrase why]
+- **Conversion effort:** [N] Ingress resources — [X] convert cleanly, !![Y] need redesign!! ([features with no Gateway API equivalent])
+- **Scope:** [namespaces] namespaces, [hosts] hosts, TLS [partial — X of Y]
 
 ---
 
 ## Assessment Summary
 
-| Category | Rating | Key Finding |
-|----------|--------|-------------|
-| Ingress Discovery | 🟢 GREEN | [one-line summary] |
-| Gateway API Readiness | 🔴 RED | [one-line summary] |
-| Ingress Resources | 🟡 AMBER | [one-line summary] |
-| DNS & Certificates | 🟢 GREEN | [one-line summary] |
-| Traffic & Routing | 🟢 GREEN | [one-line summary] |
-| Migration Risk | 🟡 AMBER | [one-line summary] |
-| Migration Plan | 🟢 GREEN | [one-line summary] |
+> Rate each theme by **migration Impact 1–5**, highest first. Impact = how hard/risky it is to **transfer or replace that feature** versus the current NGINX/Ingress setup, plus the effort to change.
+> Do **NOT** rate trivial "is X installed" prerequisites the customer already knows (e.g. "Gateway API CRDs not installed") — rate the **feature transfer/replacement difficulty** instead.
+> Color bands: **1–2 = 🟡 low**, **3–4 = 🟠 medium**, **5 = 🔴 high**.
+
+| Theme | Impact | Why — feature transfer / replacement effort vs. current setup |
+|-------|--------|----------------------------------------------------------------|
+| [highest-impact theme] | 🔴 5 | [which feature can't transfer cleanly + replacement effort] |
+| [next] | 🟠 4 | [...] |
+| [next] | 🟠 3 | [...] |
+| [next] | 🟡 2 | [...] |
+| [lowest] | 🟡 1 | [...] |
+
+> Rows are themes framed as "how hard to replace", e.g.: NGINX snippet/auth/mirror features → no Gateway API equivalent; controller currency (EOL vs modern); TLS/cert model (K8s Secret vs ACM); routing complexity (regex/rewrite); canary/traffic-split portability. Order strictly by Impact descending.
 
 ---
 
 ## Current Configuration
 
-| Property | Value |
-|----------|-------|
-| Ingress Controller(s) | [name v1.2.3<br>name2 v4.5.6] |
-| Controller Namespace(s) | [ns1<br>ns2] |
-| Total Ingress Resources | [count] |
-| Namespaces with Ingress | [ns1<br>ns2<br>ns3] |
-| Routing Pattern | [host-based / path-based / both] |
-| TLS Enabled | [yes/no/partial — X of Y] |
-| Load Balancer Type | [ALB / NLB / nginx / etc.] |
-| Node Count | [count] |
-| Instance Types | [m5.xlarge<br>m5.2xlarge] |
+## Current Configuration
+
+> Goal: convey the environment at a glance. Use a bullet list. For any value with multiple items (controllers, namespaces), use indented **sub-bullets** — never a comma list or a raw `<br>`.
+
+- **Ingress controllers:**
+  - [controller-a] `vX` (modern)
+  - [controller-b] `vX` (modern)
+  - [controller-c] `vX` !!(EOL)!!
+- **Controller namespaces:**
+  - [ns1]
+  - [ns2]
+- **Total Ingress resources:** [count]
+- **Namespaces with Ingress:**
+  - [ns1]
+  - [ns2]
+- **Routing pattern:** [host-based / path-based / both]
+- **TLS enabled:** [partial — X of Y]
+- **Load balancer types:** [ALB / NLB / ClusterIP]
+- **Nodes:** [count] — [instance types]
 
 ---
 

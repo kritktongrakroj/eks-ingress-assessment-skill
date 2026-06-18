@@ -19,6 +19,7 @@ def badge_wrap(text: str) -> str:
         text = text.replace(r, f'<span class="badge {cls}">{r}</span>')
     text = text.replace("🟢", '<span class="badge green">●</span>')
     text = text.replace("🟡", '<span class="badge amber">●</span>')
+    text = text.replace("🟠", '<span class="badge orange">●</span>')
     text = text.replace("🔴", '<span class="badge red">●</span>')
     text = text.replace("⬜", '<span class="badge unknown">●</span>')
     text = text.replace("✅", '<span style="color:#788c5d">✓</span>')
@@ -28,10 +29,33 @@ def badge_wrap(text: str) -> str:
 
 
 def inline(text: str) -> str:
-    t = strip_bold(H.escape(text))
+    t = H.escape(text)
+    t = t.replace("&lt;br&gt;", "<br>").replace("&lt;br/&gt;", "<br>").replace("&lt;br /&gt;", "<br>")
+    t = re.sub(r"!!(.+?)!!", r'<span class="hot">\1</span>', t)          # high-impact red highlight
+    t = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", t)               # bold
     t = re.sub(r"`(.+?)`", r"<code>\1</code>", t)
     t = re.sub(r"\[(.+?)\]\((.+?)\)", r'<a href="\2" target="_blank">\1</a>', t)
     return badge_wrap(t)
+
+
+def render_list(items: list[tuple[int, str]]) -> str:
+    """Render (indent, text) bullet items into nested <ul> by indent level."""
+    def build(idx: int, base: int):
+        out = "<ul>"
+        while idx < len(items):
+            ind, txt = items[idx]
+            if ind < base:
+                break
+            if ind > base:
+                sub, idx = build(idx, ind); out += sub; continue
+            out += "<li>" + inline(txt)
+            if idx + 1 < len(items) and items[idx + 1][0] > base:
+                sub, idx = build(idx + 1, items[idx + 1][0]); out += sub
+            else:
+                idx += 1
+            out += "</li>"
+        return out + "</ul>", idx
+    return build(0, items[0][0])[0] if items else ""
 
 
 def md_table_to_html(lines: list[str]) -> str:
@@ -43,7 +67,7 @@ def md_table_to_html(lines: list[str]) -> str:
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
         while len(cells) < col_count:
             cells.append("")
-        rows += "<tr>" + "".join(f"<td>{badge_wrap(strip_bold(H.escape(c)))}</td>" for c in cells) + "</tr>"
+        rows += "<tr>" + "".join(f"<td>{inline(c)}</td>" for c in cells) + "</tr>"
     return f'<div class="table-wrap"><table><thead><tr>{hdr}</tr></thead><tbody>{rows}</tbody></table></div>'
 
 
@@ -101,11 +125,12 @@ def convert_md(md_text: str, id_prefix: str = "") -> tuple[str, list[tuple[str, 
         elif line.startswith("#### "): parts.append(f"<h4>{inline(line[5:])}</h4>")
         elif line.startswith("> "): parts.append(f'<blockquote>{inline(line[2:])}</blockquote>')
         elif line.startswith("---"): pass
-        elif line.strip().startswith("- ") or line.strip().startswith("* "):
-            items = []
-            while i < len(lines) and (lines[i].strip().startswith("- ") or lines[i].strip().startswith("* ")):
-                items.append(inline(lines[i].strip()[2:])); i += 1
-            parts.append("<ul>" + "".join(f"<li>{it}</li>" for it in items) + "</ul>"); continue
+        elif re.match(r"^\s*[-*]\s", line):
+            block = []
+            while i < len(lines) and re.match(r"^\s*[-*]\s", lines[i]):
+                m = re.match(r"^(\s*)[-*]\s(.*)$", lines[i])
+                block.append((len(m.group(1)), m.group(2))); i += 1
+            parts.append(render_list(block)); continue
         elif re.match(r"^\d+\.\s", line.strip()):
             items = []
             while i < len(lines) and re.match(r"^\d+\.\s", lines[i].strip()):
@@ -165,6 +190,8 @@ tr:hover td{background:var(--bg)}
 .badge{display:inline-block;padding:2px 10px;border-radius:20px;font-family:'Poppins',sans-serif;font-size:.7rem;font-weight:600;letter-spacing:.03em;white-space:nowrap}
 .green{background:var(--green-bg);color:var(--green)} .amber{background:var(--amber-bg);color:var(--amber)}
 .red{background:var(--red-bg);color:var(--red)} .unknown{background:#f0f0ec;color:var(--gray)}
+.orange{background:#fde7d3;color:#c2410c} .hot{color:var(--red);font-weight:700}
+li strong{color:var(--text)} ul ul{margin:.2rem 0 .2rem 0}
 .hint{color:var(--text2);font-size:.8rem;margin-bottom:.5rem;font-style:italic}
 .topo-info{margin-top:.5rem;padding:.5rem .8rem;font-size:.85rem;color:var(--text2);min-height:1.6em;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border)}
 .topo-legend{display:flex;flex-wrap:wrap;gap:1rem;margin-top:.5rem;font-family:'Poppins',sans-serif;font-size:.75rem;color:var(--text2)}
@@ -272,7 +299,7 @@ def build_html(clusters: list[dict]) -> str:
         display = "block" if i == 0 else "none"
         topo_html = ""
         if c["topology_json"]:
-            topo_html = f'<div id="c{i}-topo-wrap" data-section="topo-wrap"><p class="hint">Drag to orbit · Scroll to zoom · Click a node for details</p><div id="topo-{i}" class="topo-canvas" style="width:100%;height:520px;border-radius:8px;overflow:hidden;border:1px solid var(--border);background:#0a0e14;"></div><div class="topo-info"></div><div class="topo-legend"><span><span class="dot" style="background:#8b949e"></span> Node</span><span><span class="dot" style="background:#ff9900"></span> Controller</span><span><span class="dot" style="background:#58a6ff"></span> Ingress</span><span><span class="dot" style="background:#2ea043"></span> Service</span><span><span class="dot" style="background:#bc8cff"></span> Gateway API</span></div></div>'
+            topo_html = f'<div id="c{i}-topo-wrap" data-section="topo-wrap"><p class="hint">Drag to orbit · Scroll to zoom · Click a node for details <button id=\"anim-{i}\" style=\"margin-left:10px;padding:2px 10px;background:#13233f;color:#9fd0ff;border:1px solid #2c4a6e;border-radius:12px;cursor:pointer;font-size:.72rem\">▶ Animate</button></p><div id="topo-{i}" class="topo-canvas" style="width:100%;height:520px;border-radius:8px;overflow:hidden;border:1px solid var(--border);background:#0a0e14;"></div><div class="topo-info"></div><div class="topo-legend"><span><span class="dot" style="background:#8b949e"></span> Node · server</span><span><span class="dot" style="background:#ff9900"></span> Controller · hub+ring</span><span><span class="dot" style="background:#58a6ff"></span> Ingress · gateway portal</span><span><span class="dot" style="background:#2ea043"></span> Service · K8s hex + pods</span><span><span class="dot" style="background:#bc8cff"></span> Gateway API · portal</span><span><span class=\"dot\" style=\"background:#58a6ff\"></span> ━ Ingress→Service route (bold)</span></div></div>'
             topo_data_array.append(c["topology_json"])
         else:
             topo_data_array.append("null")
@@ -329,6 +356,13 @@ Generated by EKS Ingress Migration Skill
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/MaskPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
 <script>
 const TOPOS={topo_js_array};
 const MANIFESTS={manifests_js};
@@ -374,31 +408,63 @@ function initTopo(idx){{
   if(!C||C.dataset.init)return;C.dataset.init='1';
   const info=C.parentElement.querySelector('.topo-info');
   const W=C.clientWidth,HH=C.clientHeight;
-  const scene=new THREE.Scene();scene.background=new THREE.Color(0x0a0e14);
-  const cam=new THREE.PerspectiveCamera(50,W/HH,0.1,1000);cam.position.set(0,8,22);
-  const R=new THREE.WebGLRenderer({{antialias:true}});R.setSize(W,HH);R.setPixelRatio(window.devicePixelRatio);C.appendChild(R.domElement);
-  const ctrl=new THREE.OrbitControls(cam,R.domElement);ctrl.enableDamping=true;ctrl.dampingFactor=0.08;
-  scene.add(new THREE.AmbientLight(0xffffff,0.6));
-  const dl=new THREE.DirectionalLight(0xffffff,0.8);dl.position.set(5,10,7);scene.add(dl);
-  const grid=new THREE.GridHelper(24,24,0x1a2030,0x1a2030);grid.position.y=-4;scene.add(grid);
-  const meshes=[];
-  function mat(col){{return new THREE.MeshStandardMaterial({{color:col,roughness:0.35,metalness:0.3,emissive:col,emissiveIntensity:0.12}});}}
-  function mkN(x,y,z,col,shape,sz,ud){{let g;if(shape==='box')g=new THREE.BoxGeometry(sz*1.4,sz*1.4,sz*1.4);else if(shape==='sphere')g=new THREE.SphereGeometry(sz,24,24);else if(shape==='oct')g=new THREE.OctahedronGeometry(sz);else if(shape==='cone')g=new THREE.ConeGeometry(sz*0.7,sz*1.6,24);else g=new THREE.DodecahedronGeometry(sz);const m=new THREE.Mesh(g,mat(col));m.position.set(x,y,z);m.userData=ud;scene.add(m);meshes.push(m);return m;}}
-  function pipe(a,b,col){{const dir=new THREE.Vector3().subVectors(b.position,a.position);const len=dir.length();const g=new THREE.CylinderGeometry(0.04,0.04,len,8);const m=new THREE.Mesh(g,new THREE.MeshStandardMaterial({{color:col,transparent:true,opacity:0.6}}));m.position.copy(a.position).add(dir.multiplyScalar(0.5));m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir.normalize());scene.add(m);}}
-  function txt(s,pos,col){{const c=document.createElement('canvas');c.width=512;c.height=64;const x=c.getContext('2d');x.font='bold 24px -apple-system,sans-serif';x.fillStyle=col||'#e6edf3';x.textAlign='center';x.fillText(s.length>30?s.slice(0,27)+'...':s,256,40);const t=new THREE.CanvasTexture(c);const sp=new THREE.Sprite(new THREE.SpriteMaterial({{map:t,transparent:true}}));sp.position.copy(pos);sp.position.y+=0.8;sp.scale.set(3,0.38,1);scene.add(sp);}}
+  const scene=new THREE.Scene();scene.background=new THREE.Color(0x05070d);
+  const cam=new THREE.PerspectiveCamera(52,W/HH,0.1,2000);cam.position.set(9,10,36);
+  const R=new THREE.WebGLRenderer({{antialias:true}});R.setSize(W,HH);R.setPixelRatio(Math.min(window.devicePixelRatio,1.5));C.appendChild(R.domElement);
+  const ctrl=new THREE.OrbitControls(cam,R.domElement);ctrl.enableDamping=true;ctrl.dampingFactor=0.08;ctrl.autoRotate=false;ctrl.autoRotateSpeed=0.4;ctrl.target.set(-1,0,0);
+  scene.fog=new THREE.FogExp2(0x05070d,0.011);
+  scene.add(new THREE.AmbientLight(0x9fb4d6,0.42));
+  const dl=new THREE.DirectionalLight(0xffffff,0.85);dl.position.set(6,12,8);scene.add(dl);
+  const rim=new THREE.DirectionalLight(0x58a6ff,0.5);rim.position.set(-8,-4,-10);scene.add(rim);
+  const pl=new THREE.PointLight(0xff9900,0.55,90);pl.position.set(-6,1,6);scene.add(pl);
+  {{const sg=new THREE.BufferGeometry(),NS=950,ar=new Float32Array(NS*3);for(let i=0;i<NS*3;i++)ar[i]=(Math.random()-0.5)*260;sg.setAttribute('position',new THREE.BufferAttribute(ar,3));scene.add(new THREE.Points(sg,new THREE.PointsMaterial({{color:0x6f93c4,size:0.32,transparent:true,opacity:0.65}})));}}
+  const meshes=[],FLOAT=[],LABELS=[],LINKS=[],TUBES=[];
+  function rnd(i,s){{const v=Math.sin(i*127.1+s*311.7)*43758.5453;return v-Math.floor(v);}}
+  function emat(col,e){{return new THREE.MeshStandardMaterial({{color:col,roughness:0.32,metalness:0.62,emissive:col,emissiveIntensity:e==null?0.3:e}});}}
+  // ---- entity-iconic builders (professional theme) ----
+  function buildNode(sz,col){{const g=new THREE.Group();const body=new THREE.Mesh(new THREE.BoxGeometry(sz*1.9,sz*1.15,sz*1.25),emat(col,0.16));g.add(body);for(let k=0;k<3;k++){{const s=new THREE.Mesh(new THREE.BoxGeometry(sz*1.5,sz*0.12,sz*0.07),emat(0x394150,0.05));s.position.set(0,sz*0.32-k*sz*0.32,sz*0.64);g.add(s);}}const led=new THREE.Mesh(new THREE.SphereGeometry(sz*0.1,10,10),new THREE.MeshStandardMaterial({{color:0x2ea043,emissive:0x2ea043,emissiveIntensity:1.4}}));led.position.set(sz*0.72,sz*0.42,sz*0.64);g.add(led);return g;}}
+  function buildController(sz,col){{const g=new THREE.Group();g.add(new THREE.Mesh(new THREE.IcosahedronGeometry(sz*0.6,1),emat(col,0.55)));const r1=new THREE.Mesh(new THREE.TorusGeometry(sz*1.05,sz*0.07,16,48),emat(col,0.6));r1.rotation.x=Math.PI/2.3;g.add(r1);const r2=new THREE.Mesh(new THREE.TorusGeometry(sz*1.05,sz*0.05,16,48),emat(0xffd27f,0.5));r2.rotation.x=Math.PI/2.3;r2.rotation.y=Math.PI/3;g.add(r2);return g;}}
+  function buildIngress(sz,col){{const g=new THREE.Group();const ring=new THREE.Mesh(new THREE.TorusGeometry(sz*0.95,sz*0.13,18,40),emat(col,0.5));ring.rotation.y=Math.PI/2;g.add(ring);const ar=new THREE.Mesh(new THREE.ConeGeometry(sz*0.3,sz*0.7,20),emat(0x9fd0ff,0.65));ar.rotation.z=-Math.PI/2;ar.position.x=sz*0.25;g.add(ar);return g;}}
+  function buildService(sz,col){{const g=new THREE.Group();const hex=new THREE.Mesh(new THREE.CylinderGeometry(sz*0.82,sz*0.82,sz*0.45,6),emat(col,0.32));hex.rotation.x=Math.PI/2;g.add(hex);for(let k=0;k<3;k++){{const a=k/3*Math.PI*2;const p=new THREE.Mesh(new THREE.SphereGeometry(sz*0.17,12,12),emat(0x7ee2a8,0.5));p.position.set(Math.cos(a)*sz*0.5,Math.sin(a)*sz*0.5,-sz*0.5);g.add(p);}}return g;}}
+  function buildGateway(sz,col){{const g=new THREE.Group();const r1=new THREE.Mesh(new THREE.TorusGeometry(sz*1.0,sz*0.11,18,44),emat(col,0.5));r1.rotation.y=Math.PI/2;g.add(r1);const r2=new THREE.Mesh(new THREE.TorusGeometry(sz*0.62,sz*0.09,16,40),emat(0xd2a8ff,0.6));r2.rotation.y=Math.PI/2;g.add(r2);return g;}}
+  function buildRoute(sz,col){{const g=new THREE.Group();const c=new THREE.Mesh(new THREE.ConeGeometry(sz*0.5,sz*1.1,18),emat(col,0.55));c.rotation.z=-Math.PI/2;g.add(c);return g;}}
+  function mkN(x,y,z,col,kind,sz,ud){{let g;if(kind==='node')g=buildNode(sz,col);else if(kind==='controller')g=buildController(sz,col);else if(kind==='ingress')g=buildIngress(sz,col);else if(kind==='service')g=buildService(sz,col);else if(kind==='gateway')g=buildGateway(sz,col);else g=buildRoute(sz,col);g.position.set(x,y,z);g.userData=ud;scene.add(g);meshes.push(g);FLOAT.push({{m:g,b:g.position.clone(),p:Math.random()*6.283,s:0.003+Math.random()*0.004,kind}});return g;}}
+  function pipe(a,b,col,op){{const ln=new THREE.Line(new THREE.BufferGeometry().setFromPoints([a.position.clone(),b.position.clone()]),new THREE.LineBasicMaterial({{color:col,transparent:true,opacity:op==null?0.45:op,blending:THREE.AdditiveBlending}}));scene.add(ln);LINKS.push({{a,b,line:ln}});}}
+  function updTube(o){{const a=o.a.position,b=o.b.position,d=new THREE.Vector3().subVectors(b,a),L=d.length();o.m.position.copy(a).addScaledVector(d,0.5);o.m.scale.set(1,L,1);o.m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.clone().normalize());}}
+  function tube(a,b,col,r){{const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,1,12),new THREE.MeshStandardMaterial({{color:col,emissive:col,emissiveIntensity:0.8,transparent:true,opacity:0.95,roughness:0.3,metalness:0.4}}));scene.add(m);const o={{a,b,m}};TUBES.push(o);updTube(o);return m;}}
+  function txt(m,s,col){{const c=document.createElement('canvas');c.width=512;c.height=64;const x=c.getContext('2d');x.font='bold 24px -apple-system,sans-serif';x.fillStyle=col||'#e6edf3';x.textAlign='center';x.fillText(s.length>30?s.slice(0,27)+'...':s,256,40);const t=new THREE.CanvasTexture(c);const sp=new THREE.Sprite(new THREE.SpriteMaterial({{map:t,transparent:true,depthWrite:false}}));sp.position.copy(m.position);sp.position.y+=1.0;sp.scale.set(3,0.38,1);scene.add(sp);LABELS.push({{sp,m}});}}
   const nodes=T.nodes||[],ctrls_d=T.controllers||[],ings=T.ingresses||[],svcs=T.services||[],gw=T.gatewayApi||{{}};
-  const LX_N=-12,LX_C=-6,LX_I=0,LX_S=6;
-  const nN=[];nodes.forEach((n,i)=>{{const y=(i-(nodes.length-1)/2)*2.5;const m=mkN(LX_N,y,0,0x8b949e,'box',0.45,{{type:'Node',name:n.name,instanceId:n.instanceId,instanceType:n.instanceType,zone:n.zone}});txt(n.instanceId||n.name,m.position,'#8b949e');nN.push(m);}});
-  const cN=[];ctrls_d.forEach((c,i)=>{{const y=(i-(ctrls_d.length-1)/2)*3;const m=mkN(LX_C,y,0,0xff9900,'sphere',0.55,{{type:'Controller',...c}});txt(c.name,m.position,'#ff9900');cN.push(m);nN.forEach(n=>pipe(n,m,0x8b949e));}});
-  const iN=[];ings.forEach((ing,i)=>{{const y=(i-(ings.length-1)/2)*2.2;const m=mkN(LX_I,y,0,0x58a6ff,'oct',0.4,{{type:'Ingress',...ing}});txt((ing.hosts&&ing.hosts[0])||ing.name,m.position,'#58a6ff');iN.push(m);const cn=cN.find(c=>c.userData.name===ing.controller)||cN[0];if(cn)pipe(cn,m,0xff9900);}});
-  const sN={{}};svcs.forEach((s,i)=>{{const y=(i-(svcs.length-1)/2)*2;const m=mkN(LX_S,y,0,0x2ea043,'cone',0.35,{{type:'Service',...s}});txt(s.name,m.position,'#2ea043');sN[s.namespace+'/'+s.name]=m;}});
-  ings.forEach((ing,idx)=>{{(ing.paths||[]).forEach(p=>{{const k=(ing.namespace||'default')+'/'+p.backend;if(sN[k])pipe(iN[idx],sN[k],0x58a6ff);}});}});
-  (gw.gateways||[]).forEach((g,i)=>{{mkN(LX_I,-((ings.length)/2+2+i*2.5),3,0xbc8cff,'dodec',0.45,{{type:'Gateway',...g}});}});
-  (gw.httpRoutes||[]).forEach((r,i)=>{{mkN(LX_S-2,-((ings.length)/2+2+i*2),3,0xd2a8ff,'dodec',0.32,{{type:'HTTPRoute',...r}});}});
+  const LX_N=-14,LX_C=-8,LX_I=1,LX_S=10;
+  // group ingress+service by namespace into Z-plane "lanes" so route tubes stay local (no crossing)
+  const nsList=[...new Set([...ings.map(o=>o.namespace),...svcs.map(o=>o.namespace)])];
+  const ZG=Math.max(8,Math.min(13,42/Math.max(1,nsList.length)));const nsZ={{}};nsList.forEach((ns,li)=>nsZ[ns]=(li-(nsList.length-1)/2)*ZG);
+  // floating namespace label per lane
+  nsList.forEach(ns=>{{const z=nsZ[ns];const lc=document.createElement('canvas');lc.width=512;lc.height=64;const lx=lc.getContext('2d');lx.font='bold 30px -apple-system,sans-serif';lx.fillStyle='#cdd6e0';lx.textAlign='center';lx.fillText('namespace: '+ns,256,42);const ls=new THREE.Sprite(new THREE.SpriteMaterial({{map:new THREE.CanvasTexture(lc),transparent:true,opacity:0.9,depthWrite:false}}));ls.position.set((LX_I+LX_S)/2,8,z);ls.scale.set(7.5,0.95,1);scene.add(ls);}});
+  // nodes: clean left spine (z=0)
+  const nN=[];nodes.forEach((n,i)=>{{const y=(i-(nodes.length-1)/2)*2.4;const m=mkN(LX_N,y,0,0x8b949e,'node',0.5,{{type:'Node',name:n.name,instanceId:n.instanceId,instanceType:n.instanceType,zone:n.zone}});txt(m,n.instanceId||n.name,'#8b949e');nN.push(m);}});
+  const cN=[];ctrls_d.forEach((c,i)=>{{const y=(i-(ctrls_d.length-1)/2)*3.2;const m=mkN(LX_C,y,0,0xff9900,'controller',0.62,{{type:'Controller',...c}});txt(m,c.displayName||c.name,'#ff9900');cN.push(m);nN.forEach(n=>pipe(n,m,0x8b949e,0.12));}});
+  // ingresses grouped per namespace lane
+  const iMesh={{}},iByNs={{}};ings.forEach(o=>{{(iByNs[o.namespace]=iByNs[o.namespace]||[]).push(o);}});
+  nsList.forEach(ns=>{{const arr=iByNs[ns]||[];arr.forEach((ing,j)=>{{const y=(j-(arr.length-1)/2)*2.2;const m=mkN(LX_I,y,nsZ[ns],0x58a6ff,'ingress',0.5,{{type:'Ingress',...ing}});txt(m,(ing.hosts&&ing.hosts[0])||ing.name,'#58a6ff');iMesh[ns+'/'+ing.name]=m;const cn=cN.find(c=>c.userData.name===ing.controller);if(cn)pipe(cn,m,0xff9900,0.32);else console.warn('Ingress '+(ing.name||'?')+' references unknown controller "'+ing.controller+'" — not linked');}});}});
+  // services grouped per namespace lane
+  const sN={{}},sByNs={{}};svcs.forEach(o=>{{(sByNs[o.namespace]=sByNs[o.namespace]||[]).push(o);}});
+  nsList.forEach(ns=>{{const arr=sByNs[ns]||[];arr.forEach((s,j)=>{{const y=(j-(arr.length-1)/2)*2.0;const m=mkN(LX_S,y,nsZ[ns],0x2ea043,'service',0.55,{{type:'Service',...s}});txt(m,s.name,'#2ea043');sN[ns+'/'+s.name]=m;}});}});
+  // bold ingress->service route tubes (each stays within its namespace plane)
+  ings.forEach(ing=>{{const im=iMesh[ing.namespace+'/'+ing.name];if(!im)return;(ing.paths||[]).forEach(p=>{{const k=(ing.namespace||'default')+'/'+p.backend;if(sN[k])tube(im,sN[k],0x58a6ff,0.08);}});}});
+  (gw.gateways||[]).forEach((g,i)=>{{const m=mkN(LX_I,-((ings.length)/2+3+i*2.5),6,0xbc8cff,'gateway',0.6,{{type:'Gateway',...g}});txt(m,g.name||'gateway','#bc8cff');}});
+  (gw.httpRoutes||[]).forEach((r,i)=>{{mkN(LX_S-2,-((ings.length)/2+3+i*2),6,0xd2a8ff,'route',0.4,{{type:'HTTPRoute',...r}});}});
+  let composer=null;if(THREE.EffectComposer&&THREE.UnrealBloomPass&&THREE.RenderPass){{composer=new THREE.EffectComposer(R);composer.addPass(new THREE.RenderPass(scene,cam));composer.addPass(new THREE.UnrealBloomPass(new THREE.Vector2(W,HH),0.85,0.55,0.55));}}
   const rc=new THREE.Raycaster(),mse=new THREE.Vector2();
-  R.domElement.addEventListener('click',e=>{{const rect=R.domElement.getBoundingClientRect();mse.x=((e.clientX-rect.left)/rect.width)*2-1;mse.y=-((e.clientY-rect.top)/rect.height)*2+1;rc.setFromCamera(mse,cam);const h=rc.intersectObjects(meshes);if(h.length&&info){{const d=h[0].object.userData;let t='<strong>'+d.type+':</strong> '+(d.name||'');if(d.instanceId)t+=' · '+d.instanceId;if(d.instanceType)t+=' · '+d.instanceType;if(d.zone)t+=' · '+d.zone;if(d.namespace)t+=' <em>('+d.namespace+')</em>';if(d.version)t+=' · v'+d.version;if(d.hosts)t+=' · '+d.hosts.join(', ');if(d.ports)t+=' · ports: '+d.ports.join(', ');if(d.paths)t+=' · '+d.paths.length+' path(s)';info.innerHTML=t;}}}});
-  function anim(){{requestAnimationFrame(anim);ctrl.update();R.render(scene,cam);}}anim();
-  window.addEventListener('resize',()=>{{const w=C.clientWidth,h=C.clientHeight;cam.aspect=w/h;cam.updateProjectionMatrix();R.setSize(w,h);}});
+  R.domElement.addEventListener('click',e=>{{const rect=R.domElement.getBoundingClientRect();mse.x=((e.clientX-rect.left)/rect.width)*2-1;mse.y=-((e.clientY-rect.top)/rect.height)*2+1;rc.setFromCamera(mse,cam);const h=rc.intersectObjects(meshes,true);if(h.length&&info){{let o=h[0].object;while(o&&!(o.userData&&o.userData.type))o=o.parent;if(!o)return;const d=o.userData;let t='<strong>'+d.type+':</strong> '+(d.displayName||d.name||'');if(d.instanceId)t+=' · '+d.instanceId;if(d.instanceType)t+=' · '+d.instanceType;if(d.zone)t+=' · '+d.zone;if(d.namespace)t+=' <em>('+d.namespace+')</em>';if(d.version)t+=' · v'+d.version;if(d.hosts)t+=' · '+d.hosts.join(', ');if(d.ports)t+=' · ports: '+d.ports.join(', ');if(d.paths)t+=' · '+d.paths.length+' path(s)';info.innerHTML=t;}}}});
+  let animating=false,dirty=true;const clock=new THREE.Clock();
+  ctrl.addEventListener('change',()=>{{dirty=true;}});
+  const abtn=document.getElementById('anim-'+idx);if(abtn)abtn.onclick=()=>{{animating=!animating;ctrl.autoRotate=animating;abtn.textContent=animating?'⏸ Pause motion':'▶ Animate';clock.start();dirty=true;}};
+  function frame(){{requestAnimationFrame(frame);
+    if(animating){{const t=clock.getElapsedTime();for(const o of FLOAT){{o.m.position.set(o.b.x+Math.sin(t*0.5+o.p)*0.35,o.b.y+Math.sin(t*0.8+o.p)*0.5,o.b.z+Math.cos(t*0.45+o.p)*0.35);o.m.rotation.y+=o.s;if(o.kind!=='node')o.m.rotation.x+=o.s*0.35;}}for(const l of LABELS)l.sp.position.set(l.m.position.x,l.m.position.y+1.0,l.m.position.z);for(const L of LINKS)L.line.geometry.setFromPoints([L.a.position,L.b.position]);for(const o of TUBES)updTube(o);dirty=true;}}
+    ctrl.update();
+    if(dirty){{dirty=false;if(composer)composer.render();else R.render(scene,cam);}}
+  }}frame();
+  window.addEventListener('resize',()=>{{const w=C.clientWidth,h=C.clientHeight;cam.aspect=w/h;cam.updateProjectionMatrix();R.setSize(w,h);if(composer)composer.setSize(w,h);dirty=true;}});
 }}
 function toggleTheme(){{
   const h=document.documentElement,b=document.getElementById('theme-btn');
