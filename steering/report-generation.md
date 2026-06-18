@@ -44,7 +44,7 @@ Save to `~/ingress_migration/<cluster>/topology.json`. Include nodes (EC2 instan
 11. **Lead with impact.** Order Executive Summary bullets and Assessment Summary rows from highest impact to lowest.
 12. **Download buttons (renderer tokens):** drop `[[DL:gateway-api]]`, `[[DL:alb]]`, `[[DL:atx]]`, or `[[DL:current]]` anywhere in the markdown — the renderer replaces each with a one-click download button for that option's combined routing config (built from the exported manifests). Prefer a download button over printing long target/current config text.
 13. **In-page anchor links:** write `[blocker](#blockers)` to link to a section — the renderer auto-scopes the anchor to the cluster (e.g. `#c0-blockers`). Use this wherever the text says "see Blockers".
-14. **Impact meters everywhere:** Ingress Discovery and Traffic & Routing also use the **Impact 1–5** scale (🟡1-2 / 🟠3-4 / 🔴5), not GREEN/AMBER/RED.
+14. **Impact everywhere, by the rubric:** Assessment Summary, Ingress Discovery, Routing Topology, Traffic & Routing, Blockers, Recommendations, Ingress Resource Analysis, DNS & Certificates Analysis, Migration Risk and Migration Planning all use the **Impact 1–5** scale (🟡1-2 / 🟠3-4 / 🔴5) — never GREEN/AMBER/RED. Every score MUST be justified against the **Impact Indicator** rubric (security/reputation · business/revenue · nature & effort), not ad-hoc judgement. Note: easy-to-deploy prerequisites (e.g. installing CRDs) are LOW even if they block a path.
 
 ### Report Template (follow EXACTLY)
 
@@ -72,6 +72,18 @@ Save to `~/ingress_migration/<cluster>/topology.json`. Include nodes (EC2 instan
 - **Biggest migration blocker:** !![the one thing most preventing a clean migration]!! — [one phrase why]
 - **Conversion effort:** [N] Ingress resources — [X] convert cleanly, !![Y] need redesign!! ([features with no Gateway API equivalent])
 - **Scope:** [namespaces] namespaces, [hosts] hosts, TLS [partial — X of Y]
+
+---
+
+## Impact Indicator
+
+> Place this rubric **before Assessment Summary** (Overview group). EVERY Impact score in the report MUST follow it — do not invent ad-hoc severities. Impact weighs three dimensions: security/reputation, business/revenue, and nature & effort to remediate; score the dominant one. Render as a table, one row per band, each cell a bullet list.
+
+| Impact | Meaning |
+|--------|---------|
+| 🟡 1–2 Low | - **Security:** hardening gap, no business-effective breach (e.g. a secret kept in-cluster, not in a secrets manager)<br>- **Business:** no revenue loss / downtime / lost transactions<br>- **Nature:** optional "should/may-do" best practice (reliability / automation)<br>- **Effort:** hours–1 day, one person, single service or route, no impact to business flows |
+| 🟠 3–4 Medium | - **Security:** breach with limited reputation / trust loss (weigh likelihood & history)<br>- **Business:** revenue loss limited to short downtime<br>- **Nature:** tech debt / weak design, hard to reverse, costly to fix later<br>- **Effort:** scoped to part / an area or one cluster — not all flows |
+| 🔴 5 High | - **Security:** breach with major loss or reputational damage (weigh likelihood & history)<br>- **Business:** significant revenue loss or prolonged downtime<br>- **Nature & Effort:** needs re-design / re-architecture, maybe business or provider approval. *If large but straightforward to deploy → rate medium-to-low.* |
 
 ---
 
@@ -340,21 +352,21 @@ For customers with AWS Transform access — fully automated manifest rewriting. 
 
 ## Migration Risk
 
-| Item | Rating | Current State | Recommendation | Reference |
-|------|--------|---------------|----------------|-----------|
-| Downtime Risk | [rating] | [summary] | [action] | [link] |
-| Feature Gap Analysis | [rating] | [summary] | [action] | [link] |
-| Rollback Readiness | [rating] | [summary] | [action] | [link] |
+| Item | Impact | Current State | Recommendation |
+|------|--------|---------------|----------------|
+| Downtime Risk | [impact] | [summary] | - [action] |
+| Feature Gap Analysis | [impact] | [summary] | - [action] |
+| Rollback Readiness | [impact] | [summary] | - [action] |
 
 ---
 
 ## Migration Planning
 
-| Item | Rating | Current State | Recommendation | Reference |
-|------|--------|---------------|----------------|-----------|
-| Migration Scope | [rating] | [summary] | [action] | [link] |
-| Conversion Complexity per Route | [rating] | [summary] | [action] | [link] |
-| Timeline Estimate | [rating] | [summary] | [action] | [link] |
+| Item | Impact | Current State | Recommendation |
+|------|--------|---------------|----------------|
+| Migration Scope | [impact] | [summary] | - [action] |
+| Conversion Complexity per Route | [impact] | [summary] | - [action] |
+| Timeline Estimate | [impact] | [summary] | - [action] |
 
 ---
 
@@ -376,7 +388,7 @@ For customers with AWS Transform access — fully automated manifest rewriting. 
 Do NOT fabricate URLs beyond this list.
 
 **Section placement in nav:**
-- **Overview:** Information table, Executive Summary (top), then 3D Routing Diagram
+- **Overview:** Information table, Executive Summary (top), 3D Routing Diagram, Impact Indicator (rubric, just before Assessment Summary)
 - **Assessment Summary:** Assessment Summary table, Current Configuration, Ingress Discovery
 - **Routing Topology:** Routing Topology table, Traffic & Routing
 - **Migration Approach:** Migration Options (Option 1: Gateway API, Option 2: ALB Controller, Option 3: ATX — same panel + Phase 1–4 layout), **Blockers**, **Recommendations**, Export Manifests (download button)

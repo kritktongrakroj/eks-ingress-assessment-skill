@@ -220,7 +220,7 @@ footer{font-family:'Poppins',sans-serif;font-size:.75rem}
 
 
 NAV_SECTIONS = [
-    ("overview", "Overview", ["executive-summary"]),
+    ("overview", "Overview", ["executive-summary", "impact-indicator"]),
     ("assessment", "Assessment Summary", ["assessment-summary", "current-configuration", "ingress-discovery"]),
     ("routing", "Routing Topology", ["routing-topology", "traffic-routing"]),
     ("migration", "Migration Approach", ["migration-options", "blockers", "recommendations", "export-manifests"]),
@@ -334,8 +334,8 @@ def build_html(clusters: list[dict]) -> str:
         for slug, title in toc:
             if slug in slugs or any(slug.startswith(s) for s in slugs):
                 nav_links += f'<a href="#{slug}">{H.escape(strip_bold(title))}</a>\n'
-        if group_id == "overview":
-            nav_links += '<a href="#c0-topo-wrap">3D Routing Diagram</a>\n'
+                if group_id == "overview" and slug == "executive-summary":
+                    nav_links += '<a href="#c0-topo-wrap">3D Routing Diagram</a>\n'
 
     # Build per-cluster content divs
     cluster_divs = ""
