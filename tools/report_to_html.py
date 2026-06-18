@@ -141,7 +141,10 @@ def convert_md(md_text: str, id_prefix: str = "") -> tuple[str, list[tuple[str, 
         i += 1
 
     if sec > 0: parts.append("</div></details>")
-    return "\n".join(parts), toc
+    html = "\n".join(parts)
+    if id_prefix:
+        html = re.sub(r'href="#([a-z0-9][a-z0-9-]*)"', lambda m: f'href="#{id_prefix}{m.group(1)}"', html)
+    return html, toc
 
 
 # 3D topology is built inline per cluster in build_html()
@@ -191,7 +194,7 @@ tr:hover td{background:var(--bg)}
 .green{background:var(--green-bg);color:var(--green)} .amber{background:var(--amber-bg);color:var(--amber)}
 .red{background:var(--red-bg);color:var(--red)} .unknown{background:#f0f0ec;color:var(--gray)}
 .orange{background:#fde7d3;color:#c2410c} .hot{color:var(--red);font-weight:700}
-li strong{color:var(--text)} ul ul{margin:.2rem 0 .2rem 0}
+li strong{color:var(--text)} ul ul{margin:.25rem 0 .35rem 1.6rem;list-style:circle}
 .hint{color:var(--text2);font-size:.8rem;margin-bottom:.5rem;font-style:italic}
 .topo-info{margin-top:.5rem;padding:.5rem .8rem;font-size:.85rem;color:var(--text2);min-height:1.6em;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border)}
 .topo-legend{display:flex;flex-wrap:wrap;gap:1rem;margin-top:.5rem;font-family:'Poppins',sans-serif;font-size:.75rem;color:var(--text2)}
@@ -269,6 +272,34 @@ def _build_manifest_section(cluster_idx: int, cluster_name: str, manifests: dict
 </details>'''
 
 
+def _manifest_buttons(cluster_name: str, manifests: dict) -> dict:
+    """Build inline download buttons for [[DL:*]] placeholders used in the report body.
+    Each combines that option's manifest files into one downloadable YAML."""
+    def combine(prefix: str) -> str:
+        out = ""
+        for fname, content in sorted(manifests.items()):
+            if fname.startswith(prefix):
+                out += f"---\n# Source: {fname.split('/')[-1]}\n{content}\n"
+        return base64.b64encode(out.encode()).decode() if out else ""
+
+    def btn(label: str, b64: str, fn: str, color: str) -> str:
+        return (f'<a href="data:text/yaml;base64,{b64}" download="{H.escape(fn)}" '
+                f'style="display:inline-block;margin:.25rem .5rem .25rem 0;padding:7px 14px;'
+                f'background:{color};color:#fff;border-radius:var(--radius);text-decoration:none;'
+                f'font-family:Poppins,sans-serif;font-size:.78rem;font-weight:500;">⬇ {H.escape(label)}</a>')
+
+    gw = combine("target/gateway-api/") or combine("target/")
+    alb = combine("target/alb/")
+    cur = combine("current/")
+    cn = H.escape(cluster_name)
+    out = {}
+    if gw:  out["[[DL:gateway-api]]"] = btn("Gateway API routing config", gw, f"{cn}-gateway-api.yaml", "var(--accent)")
+    if alb: out["[[DL:alb]]"] = btn("ALB routing config", alb, f"{cn}-alb.yaml", "#2563eb")
+    if alb: out["[[DL:atx]]"] = btn("ATX output (ALB) config", alb, f"{cn}-atx-alb.yaml", "#7c3aed")
+    if cur: out["[[DL:current]]"] = btn("Current config", cur, f"{cn}-current.yaml", "#475569")
+    return out
+
+
 def build_html(clusters: list[dict]) -> str:
     """Build HTML with cluster dropdown if multiple clusters.
     clusters: list of {"name": str, "body": str, "toc": list, "topology_json": str|None}
@@ -309,7 +340,13 @@ def build_html(clusters: list[dict]) -> str:
         if c.get("manifests"):
             manifest_html = _build_manifest_section(i, c["name"], c["manifests"])
 
-        cluster_divs += f'<div class="cluster-panel" id="cluster-{i}" style="display:{display}">\n{topo_html}\n{c["body"]}\n{manifest_html}\n</div>\n'
+        # substitute [[DL:*]] download-button placeholders in the body
+        body = c["body"]
+        for tok, html in _manifest_buttons(c["name"], c.get("manifests") or {}).items():
+            body = body.replace(tok, html)
+        body = re.sub(r"\[\[DL:[a-z-]+\]\]", "", body)  # strip any unmatched placeholders
+
+        cluster_divs += f'<div class="cluster-panel" id="cluster-{i}" style="display:{display}">\n{topo_html}\n{body}\n{manifest_html}\n</div>\n'
 
     # Topology JS data
     topo_js_array = "[" + ",".join(topo_data_array) + "]"
@@ -544,8 +581,8 @@ def main():
                 for sub in ["current", "target"]:
                     sub_path = mdir / sub
                     if sub_path.is_dir():
-                        for f in sorted(sub_path.glob("*.yaml")):
-                            manifests[f"{sub}/{f.name}"] = f.read_text(encoding="utf-8")
+                        for f in sorted(sub_path.rglob("*.yaml")):
+                            manifests[f.relative_to(mdir).as_posix()] = f.read_text(encoding="utf-8")
                 print(f"📦 Manifests loaded: {mdir} ({len(manifests)} files)")
 
         clusters.append({"name": name, "body": body, "toc": toc, "topology_json": topology_json, "manifests": manifests})

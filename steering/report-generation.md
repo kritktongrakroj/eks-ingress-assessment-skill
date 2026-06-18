@@ -43,6 +43,9 @@ Save to `~/ingress_migration/<cluster>/topology.json`. Include nodes (EC2 instan
 9. **Executive Summary = one-shot understanding for a non-technical reader.** Top-level bullet per impact theme, indented sub-bullets for specifics. Bold the key term in each bullet; wrap the most damaging facts in `!! !!` (renders red).
 10. **Emphasis syntax (supported by the renderer):** `**bold**` for key terms, `!!red highlight!!` for high-impact / at-risk items, backticks for `versions/code`. Use sparingly — only words that carry the impact.
 11. **Lead with impact.** Order Executive Summary bullets and Assessment Summary rows from highest impact to lowest.
+12. **Download buttons (renderer tokens):** drop `[[DL:gateway-api]]`, `[[DL:alb]]`, `[[DL:atx]]`, or `[[DL:current]]` anywhere in the markdown — the renderer replaces each with a one-click download button for that option's combined routing config (built from the exported manifests). Prefer a download button over printing long target/current config text.
+13. **In-page anchor links:** write `[blocker](#blockers)` to link to a section — the renderer auto-scopes the anchor to the cluster (e.g. `#c0-blockers`). Use this wherever the text says "see Blockers".
+14. **Impact meters everywhere:** Ingress Discovery and Traffic & Routing also use the **Impact 1–5** scale (🟡1-2 / 🟠3-4 / 🔴5), not GREEN/AMBER/RED.
 
 ### Report Template (follow EXACTLY)
 
@@ -117,58 +120,80 @@ Save to `~/ingress_migration/<cluster>/topology.json`. Include nodes (EC2 instan
 
 ## Ingress Discovery
 
-| Item | Rating | Current State | Recommendation | Reference |
-|------|--------|---------------|----------------|-----------|
-| Ingress Controllers Installed | [rating] | [summary] | [action or "None required"] | [link] |
-| IngressClass Resources | [rating] | [summary] | [action or "None required"] | [link] |
-| Ingress Resource Inventory | [rating] | [summary] | [action or "None required"] | [link] |
+| Item | Impact | Current State | Recommendation |
+|------|--------|---------------|----------------|
+| Ingress Controllers Installed | [🟡1-2 / 🟠3-4 / 🔴5] | [summary] | [action or "None required"] |
+| IngressClass Resources | [impact] | [summary] | [action or "None required"] |
+| Ingress Resource Inventory | [impact] | [summary] | [action or "None required"] |
 
 ---
 
 ## Routing Topology
 
-| Ingress Name | Namespace | Controller | Host | Path | Backend Service | Port | TLS |
-|-------------|-----------|------------|------|------|-----------------|------|-----|
-| [name] | [ns] | [controller] | [host] | [path] | [svc] | [port] | [yes/no] |
+> Keep this table narrow so it fits. Combine host+path into one **Route** column, backend+port into **Backend:Port**, TLS as ✓/—, and add a per-route **Impact** (1–5). Omit a shared host suffix (note it above the table). Use `<br>` for multi-backend cells.
+
+| Ingress | NS | Controller | Route (host · path) | Backend:Port | TLS | Impact |
+|---------|----|------------|---------------------|--------------|-----|--------|
+| [name] | [ns] | [controller] | [host · path] | [svc:port] | [✓/—] | [impact] |
 
 ---
 
 ## Traffic & Routing
 
-| Item | Rating | Current Config | Recommendation | Reference |
-|------|--------|----------------|----------------|-----------|
-| Routing Pattern Mapping | [rating] | `Ingress/<name>: <host><path> → <backend>:<port> (<pathType>, TLS:<yes/no>)` | [action] | [link] |
-| Advanced Traffic Features | [rating] | `annotations: <key>=<value>` (one per line, actual values) | [action] | [link] |
-| Cross-Namespace Routing | [rating] | `<ns>/<ingress> → <target-ns>/<svc>` or "All same-namespace" | [action] | [link] |
+| Item | Impact | Current Config | Recommendation |
+|------|--------|----------------|----------------|
+| Routing Pattern Mapping | [impact] | [[DL:current]] | [action] |
+| Advanced Traffic Features | [impact] | [[DL:current]] | [action] |
+| Cross-Namespace Routing | [impact] | [[DL:current]] | [action] |
 
-> **Current Config column:** Show actual config in compact 1-liner format so the DevOps team knows exactly what exists and where. Use backtick code formatting. Multiple routes = one per line with `<br>`.
+> **Current Config column:** use the `[[DL:current]]` download button (the current manifests are already exported) rather than printing long config strings.
 
 ---
 
 ## Migration Options
 
-> This section presents available migration paths. The choice depends on your team's requirements, timeline, and risk tolerance.
+> Three migration paths. **Every option uses the same layout** (apply Option 1 as the template):
+> 1. an **info panel** (blockquote): `> **What:** … · **Effort:** Low/Medium/High · **Best when:** …` then a second line `> **Routing config:** [[DL:<token>]]`
+> 2. aligned **Phase 1 — Foundation / Phase 2 — Convert & Test / Phase 3 — Cutover / Phase 4 — Cleanup**, each a `| Step | Action |` table with numbered steps.
+> Do NOT print verbose target config — the `[[DL:*]]` button downloads it. Where a route can't convert, link `(see [blocker](#blockers))`.
+>
+> **Download routing config:** [[DL:gateway-api]] [[DL:alb]] [[DL:atx]]
 
 ### Option 1: Gateway API
 
-Gateway API is the official Kubernetes successor to Ingress. AWS LB Controller v2.7+ supports it natively.
+> **What:** Kubernetes-native successor to Ingress (HTTPRoute + Gateway). · **Effort:** Medium · **Best when:** you want the long-term standard.
+> **Routing config:** [[DL:gateway-api]]
 
-#### Phase 1: Foundation
-
+#### Phase 1 — Foundation
 | Step | Action |
 |------|--------|
 | 1 | Install Gateway API CRDs |
-| 2 | Upgrade AWS LB Controller to v2.7+ |
-| 3 | Create GatewayClass resource |
-| 4 | Create Gateway resource |
+| 2 | Verify/upgrade AWS LB Controller (v2.7+) |
+| 3 | Create GatewayClass |
+| 4 | Create Gateway per listener group |
 
-#### Phase 2: Convert & Test
+#### Phase 2 — Convert & Test
+| Step | Action |
+|------|--------|
+| 1 | Generate HTTPRoutes from current Ingress (download config above) |
+| 2 | Apply low-risk routes first; validate routing, TLS, health |
+| 3 | Routes with no equivalent (snippets/auth/mirror) — redesign (see [blocker](#blockers)) |
 
-| Ingress | Target HTTPRoute | Target Config |
-|---------|-----------------|---------------|
-| [ingress-name] | [httproute-name] | `HTTPRoute/<name>: parentRef=<gateway>, hostnames=[<host>], path=<path> → <backend>:<port>` |
+#### Phase 3 — Cutover
+| Step | Action |
+|------|--------|
+| 1 | Shift DNS to the Gateway ALB (weighted) |
+| 2 | Watch 5xx / latency |
+| 3 | Confirm all HTTPRoutes `Accepted=True` |
 
-> **Target Config column:** Show the equivalent Gateway API config in compact 1-liner format. The DevOps team should be able to read this and know exactly what to create. Use backtick code formatting.
+#### Phase 4 — Cleanup
+| Step | Action |
+|------|--------|
+| 1 | Delete migrated Ingress resources |
+| 2 | Remove old controllers |
+| 3 | Remove unused IngressClasses |
+
+> Options 2 (ALB) and 3 (ATX) follow the identical panel + Phase 1–4 structure, each with its own `[[DL:alb]]` / `[[DL:atx]]` button. Keep the ALB annotation-conversion table and the ATX "What ATX Converts" table as reference sub-sections under their options.
 
 #### Phase 3: Traffic Cutover
 
