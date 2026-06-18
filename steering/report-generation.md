@@ -156,8 +156,7 @@ Save to `~/ingress_migration/<cluster>/topology.json`. Include nodes (EC2 instan
 > 1. an **info panel** (blockquote): `> **What:** … · **Effort:** Low/Medium/High · **Best when:** …` then a second line `> **Routing config:** [[DL:<token>]]`
 > 2. aligned **Phase 1 — Foundation / Phase 2 — Convert & Test / Phase 3 — Cutover / Phase 4 — Cleanup**, each a `| Step | Action |` table with numbered steps.
 > Do NOT print verbose target config — the `[[DL:*]]` button downloads it. Where a route can't convert, link `(see [blocker](#blockers))`.
->
-> **Download routing config:** [[DL:gateway-api]] [[DL:alb]] [[DL:atx]]
+> No summary/intro blockquote above the options — send the reader straight into Option 1 so they engage with the steps.
 
 ### Option 1: Gateway API
 
