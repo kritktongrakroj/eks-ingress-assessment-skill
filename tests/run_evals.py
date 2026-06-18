@@ -155,8 +155,8 @@ def group_renderer():
     os.unlink(out)
 
     cases = [
-        ("bold renders", "<strong>" in html),
-        ("hot/red emphasis renders", 'class="hot"' in html),
+        ("bold renders", "<strong>Controllers" in html),
+        ("hot/red emphasis renders", 'class="hot">one is End-of-Life' in html),
         ("nested bullets render", "<ul><li>" in html),
         ("br not escaped literally", "&lt;br&gt;" not in html),
         ("bullet-in-cell renders", "<td><ul>" in html),
@@ -165,7 +165,7 @@ def group_renderer():
         ("download buttons present", html.count("data:text/yaml;base64") >= 3),
         ("3D scene present", "UnrealBloomPass" in html and "buildController" in html),
         ("entity-iconic builders", all(b in html for b in ("buildNode", "buildIngress", "buildService"))),
-        ("References / Export Materials present", "Export Materials" in html),
+        ("Export Materials section renders", 'data-section="export-materials"' in html),
         ("no Migration Planning", "Migration Planning" not in html),
         ("anchor scoped to cluster", 'href="#c0-blockers"' in html),
         ("controller-link no silent fallback", "||cN[0]" not in html),
