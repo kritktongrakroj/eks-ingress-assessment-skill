@@ -1,5 +1,8 @@
 # DNS & Certificate Management
 
+> **Rating model:** Express every finding as **Impact 1–5** using the *Impact Indicator* rubric (security/reputation · business/revenue · nature & effort to remediate). Band mapping is a starting point — GREEN→🟡 1–2, AMBER→🟠 3–4, RED→🔴 5 — but the Impact Indicator criteria set the final score (e.g. an easy-to-deploy prerequisite stays 🟡 low even if it blocks a path). All checks are **read-only** (`kubectl get/describe`, `aws … describe/list`).
+
+
 ## Purpose
 Assess DNS automation and TLS certificate management for Gateway API migration.
 
@@ -19,11 +22,11 @@ Assess DNS automation and TLS certificate management for Gateway API migration.
 
 **Critical:** external-dns must be configured with `--source=gateway-httproute` (and optionally `--source=gateway-grpcroute`) to auto-manage DNS for Gateway API resources. If only `--source=ingress` is set, DNS won't work after migration.
 
-**Rating:**
-- 🟢 GREEN: external-dns installed with `gateway-httproute` source, IRSA configured
-- 🟡 AMBER: external-dns installed but only `ingress` source — needs config update
-- 🔴 RED: No external-dns — DNS records managed manually
-- ⬜ UNKNOWN: Cannot determine DNS management
+**Impact (per Impact Indicator):**
+- 🟡 1–2 (Low): external-dns installed with `gateway-httproute` source, IRSA configured
+- 🟠 3–4 (Medium): external-dns installed but only `ingress` source — needs config update
+- 🔴 5 (High): No external-dns — DNS records managed manually
+- ⬜ Unknown: Cannot determine DNS management
 
 ### 4.2 — cert-manager Gateway API Integration
 
@@ -38,11 +41,11 @@ Assess DNS automation and TLS certificate management for Gateway API migration.
 3. Check for `--feature-gates=ExperimentalGatewayAPISupport=true` in controller args (pre-v1.15)
 4. List ClusterIssuers → check solver type
 
-**Rating:**
-- 🟢 GREEN: cert-manager v1.15+ with Gateway API support, ClusterIssuer ready
-- 🟡 AMBER: cert-manager installed but Gateway API feature gate not enabled, or older version
-- 🔴 RED: No cert-manager and TLS certs are static K8s Secrets
-- ⬜ UNKNOWN: Cannot determine cert management
+**Impact (per Impact Indicator):**
+- 🟡 1–2 (Low): cert-manager v1.15+ with Gateway API support, ClusterIssuer ready
+- 🟠 3–4 (Medium): cert-manager installed but Gateway API feature gate not enabled, or older version
+- 🔴 5 (High): No cert-manager and TLS certs are static K8s Secrets
+- ⬜ Unknown: Cannot determine cert management
 
 ### 4.3 — ACM Integration
 
@@ -56,8 +59,8 @@ Assess DNS automation and TLS certificate management for Gateway API migration.
 2. Extract unique ACM ARNs
 3. Verify certificates exist and are valid
 
-**Rating:**
-- 🟢 GREEN: Using ACM certificates — maps directly to Gateway listener annotations
-- 🟡 AMBER: Mix of ACM and K8s Secret certificates
-- 🔴 RED: No ACM — all self-managed Secrets
-- ⬜ UNKNOWN: Cannot verify ACM certificate status
+**Impact (per Impact Indicator):**
+- 🟡 1–2 (Low): Using ACM certificates — maps directly to Gateway listener annotations
+- 🟠 3–4 (Medium): Mix of ACM and K8s Secret certificates
+- 🔴 5 (High): No ACM — all self-managed Secrets
+- ⬜ Unknown: Cannot verify ACM certificate status

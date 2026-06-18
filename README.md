@@ -7,7 +7,7 @@
 
 > ⚠️ **Important:** This is sample code for demonstration and educational purposes only. It is not intended for production use without additional security testing and review. Use at your own risk.
 
-A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) / [Kiro CLI](https://kiro.dev) skill that performs automated EKS Ingress migration assessments. It connects to live EKS clusters, discovers all Ingress resources, rates migration readiness across 7 areas, and generates an interactive HTML report with 3D topology visualization and ready-to-apply manifests.
+A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) / [Kiro CLI](https://kiro.dev) skill that performs automated EKS Ingress migration assessments. It connects to live EKS clusters, discovers all Ingress resources, rates migration readiness across 7 areas, and generates an interactive HTML report with 3D routing diagram visualization and ready-to-apply manifests.
 
 **Three migration paths supported:**
 - **Gateway API** (HTTPRoute + Gateway) — the Kubernetes-native successor to Ingress
@@ -93,7 +93,7 @@ The skill generates multiple output formats per cluster:
 
 | Format | Description |
 |--------|-------------|
-| **HTML Report** | Interactive dashboard with 3D topology, cluster dropdown, dark/light theme |
+| **HTML Report** | Interactive dashboard with 3D routing diagram, cluster dropdown, dark/light theme |
 | **Markdown Report** | Detailed findings, ratings, recommendations, CLI commands |
 | **Topology JSON** | Cluster architecture data (nodes, controllers, ingresses, services) |
 | **Current Manifests** | Existing Ingress resources as clean YAML (backup) |
@@ -101,7 +101,7 @@ The skill generates multiple output formats per cluster:
 
 ### Report Features
 
-- **3D Current Architecture** — Three.js visualization with orbit/zoom/click (nodes, controllers, ingresses, services as distinct 3D shapes)
+- **3D Routing Diagram** — Three.js visualization with orbit/zoom/click (nodes, controllers, ingresses, services as distinct 3D shapes)
 - **Multi-cluster support** — Single HTML with cluster dropdown selector
 - **Export Manifests** — Download button for ready-to-apply Gateway API YAML
 - **Dark/Light theme** — Toggle with system preference detection
@@ -258,7 +258,7 @@ eks-ingress-assessment-skill/
 │       ├── summaries.md                   #     Document summaries
 │       └── document_references/           #     Source reference material
 ├── tools/
-│   └── report_to_html.py                  # MD → HTML with Three.js 3D topology
+│   └── report_to_html.py                  # MD → HTML with Three.js 3D routing diagram
 └── reports/                               # Generated reports (gitignored)
     └── .gitkeep
 ```

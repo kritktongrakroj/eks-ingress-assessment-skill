@@ -1,5 +1,8 @@
 # Gateway API Migration Plan
 
+> **Rating model:** Express every finding as **Impact 1–5** using the *Impact Indicator* rubric (security/reputation · business/revenue · nature & effort to remediate). Band mapping is a starting point — GREEN→🟡 1–2, AMBER→🟠 3–4, RED→🔴 5 — but the Impact Indicator criteria set the final score (e.g. an easy-to-deploy prerequisite stays 🟡 low even if it blocks a path). All checks are **read-only** (`kubectl get/describe`, `aws … describe/list`).
+
+
 ## Purpose
 Generate a concrete, phased migration plan from Ingress to Gateway API based on assessment findings.
 
@@ -11,10 +14,10 @@ Generate a concrete, phased migration plan from Ingress to Gateway API based on 
 
 1. Install Gateway API CRDs (if not present):
    ```bash
-   kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.1/standard-install.yaml
+   kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml
    ```
 
-2. Upgrade AWS LB Controller to v2.7+ (if needed):
+2. Upgrade AWS LB Controller to **≥ v2.14** (L7 Gateway API) / **≥ v2.13.3** (L4) — not required on EKS Auto Mode (built-in):
    ```bash
    # EKS managed add-on
    aws eks update-addon --cluster-name <cluster> --addon-name aws-load-balancer-controller --addon-version <latest>
@@ -29,7 +32,7 @@ Generate a concrete, phased migration plan from Ingress to Gateway API based on 
    metadata:
      name: aws-alb
    spec:
-     controllerName: gateway.networking.k8s.aws/alb
+     controllerName: gateway.k8s.aws/alb
    ```
 
 4. Update external-dns to add `--source=gateway-httproute`
@@ -115,11 +118,11 @@ Example: `HTTPRoute/nginx-app-route: parentRef=main-gateway, hostnames=[app.exam
 - Estimated HTTPRoute count (may differ — one Ingress can become multiple HTTPRoutes)
 - ReferenceGrant resources needed (for cross-namespace routing)
 
-**Rating:**
-- 🟢 GREEN: <20 Ingress resources, straightforward 1:1 mapping
-- 🟡 AMBER: 20-50 Ingress resources, some complex conversions
-- 🔴 RED: >50 Ingress resources or heavy customization requiring redesign
-- ⬜ UNKNOWN: Cannot determine scope
+**Impact (per Impact Indicator):**
+- 🟡 1–2 (Low): <20 Ingress resources, straightforward 1:1 mapping
+- 🟠 3–4 (Medium): 20-50 Ingress resources, some complex conversions
+- 🔴 5 (High): >50 Ingress resources or heavy customization requiring redesign
+- ⬜ Unknown: Cannot determine scope
 
 ### 7.2 — Conversion Complexity per Route
 
@@ -129,13 +132,15 @@ Example: `HTTPRoute/nginx-app-route: parentRef=main-gateway, hostnames=[app.exam
 - Routes with auth: need Gateway-level Cognito/OIDC annotation
 - Routes with snippets: need redesign (no equivalent)
 
-**Rating:**
-- 🟢 GREEN: >80% of routes are simple direct conversions
-- 🟡 AMBER: 50-80% simple, rest need filter configuration
-- 🔴 RED: <50% simple — heavy customization throughout
-- ⬜ UNKNOWN: Cannot assess conversion complexity
+**Impact (per Impact Indicator):**
+- 🟡 1–2 (Low): >80% of routes are simple direct conversions
+- 🟠 3–4 (Medium): 50-80% simple, rest need filter configuration
+- 🔴 5 (High): <50% simple — heavy customization throughout
+- ⬜ Unknown: Cannot assess conversion complexity
 
 ### 7.3 — Timeline Estimate
+
+> Express timeline as **relative phasing / complexity**, not committed mandays — actual effort depends on team experience and cannot be fixed precisely. Use the Impact Indicator (effort dimension) to convey scale; treat any day counts as indicative only.
 
 Based on findings, estimate:
 - Phase 1 (Foundation): X days
@@ -144,8 +149,8 @@ Based on findings, estimate:
 - Phase 4 (Cleanup): X days
 - Total: X weeks
 
-**Rating:**
-- 🟢 GREEN: Estimated <2 weeks total
-- 🟡 AMBER: 2-4 weeks
-- 🔴 RED: >4 weeks
-- ⬜ UNKNOWN: Cannot estimate
+**Impact (per Impact Indicator):**
+- 🟡 1–2 (Low): Estimated <2 weeks total
+- 🟠 3–4 (Medium): 2-4 weeks
+- 🔴 5 (High): >4 weeks
+- ⬜ Unknown: Cannot estimate

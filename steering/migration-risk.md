@@ -1,5 +1,8 @@
 # Migration Risk Assessment
 
+> **Rating model:** Express every finding as **Impact 1–5** using the *Impact Indicator* rubric (security/reputation · business/revenue · nature & effort to remediate). Band mapping is a starting point — GREEN→🟡 1–2, AMBER→🟠 3–4, RED→🔴 5 — but the Impact Indicator criteria set the final score (e.g. an easy-to-deploy prerequisite stays 🟡 low even if it blocks a path). All checks are **read-only** (`kubectl get/describe`, `aws … describe/list`).
+
+
 ## Purpose
 Evaluate risk of migrating from Ingress to Gateway API.
 
@@ -19,11 +22,11 @@ Evaluate risk of migrating from Ingress to Gateway API.
 
 **Key insight:** Ingress and Gateway API resources are completely independent. You can run both simultaneously — the old Ingress keeps working while you create HTTPRoute equivalents and test them. Cutover is a DNS switch.
 
-**Rating:**
-- 🟢 GREEN: Low Ingress count, DNS automation in place, coexistence confirmed
-- 🟡 AMBER: High Ingress count makes phased migration complex but still zero-downtime
-- 🔴 RED: No DNS automation — manual DNS changes during cutover risk downtime
-- ⬜ UNKNOWN: Cannot assess traffic patterns
+**Impact (per Impact Indicator):**
+- 🟡 1–2 (Low): Low Ingress count, DNS automation in place, coexistence confirmed
+- 🟠 3–4 (Medium): High Ingress count makes phased migration complex but still zero-downtime
+- 🔴 5 (High): No DNS automation — manual DNS changes during cutover risk downtime
+- ⬜ Unknown: Cannot assess traffic patterns
 
 ### 6.2 — Feature Gap Analysis
 
@@ -41,11 +44,11 @@ Evaluate risk of migrating from Ingress to Gateway API.
    - nginx configuration-snippet → ❌ No equivalent (redesign)
    - nginx server-snippet → ❌ No equivalent (redesign)
 
-**Rating:**
-- 🟢 GREEN: All features have Gateway API or AWS service equivalents
-- 🟡 AMBER: Some features need AWS service substitution
-- 🔴 RED: Critical dependency on features with no equivalent — architecture redesign needed
-- ⬜ UNKNOWN: Cannot determine feature gap
+**Impact (per Impact Indicator):**
+- 🟡 1–2 (Low): All features have Gateway API or AWS service equivalents
+- 🟠 3–4 (Medium): Some features need AWS service substitution
+- 🔴 5 (High): Critical dependency on features with no equivalent — architecture redesign needed
+- ⬜ Unknown: Cannot determine feature gap
 
 ### 6.3 — Rollback Readiness
 
@@ -59,8 +62,8 @@ Evaluate risk of migrating from Ingress to Gateway API.
 2. Check workspace for IaC files managing Ingress resources
 3. Check for ArgoCD/Flux managing Ingress resources
 
-**Rating:**
-- 🟢 GREEN: Ingress resources in Git, GitOps managed, rollback = revert HTTPRoute + keep Ingress
-- 🟡 AMBER: Ingress resources in Git but no GitOps
-- 🔴 RED: Ingress resources not in version control
-- ⬜ UNKNOWN: Cannot determine rollback readiness
+**Impact (per Impact Indicator):**
+- 🟡 1–2 (Low): Ingress resources in Git, GitOps managed, rollback = revert HTTPRoute + keep Ingress
+- 🟠 3–4 (Medium): Ingress resources in Git but no GitOps
+- 🔴 5 (High): Ingress resources not in version control
+- ⬜ Unknown: Cannot determine rollback readiness

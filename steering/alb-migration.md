@@ -1,5 +1,8 @@
 # ALB Controller Migration Path
 
+> **Rating model:** Express every finding as **Impact 1–5** using the *Impact Indicator* rubric (security/reputation · business/revenue · nature & effort to remediate). Band mapping is a starting point — GREEN→🟡 1–2, AMBER→🟠 3–4, RED→🔴 5 — but the Impact Indicator criteria set the final score (e.g. an easy-to-deploy prerequisite stays 🟡 low even if it blocks a path). All checks are **read-only** (`kubectl get/describe`, `aws … describe/list`).
+
+
 ## Purpose
 Guide migration from NGINX Ingress Controller to AWS Load Balancer Controller (ALB Ingress), converting all NGINX-specific annotations to their ALB equivalents.
 
@@ -117,7 +120,7 @@ alb.ingress.kubernetes.io/group.order: "10"
 ## Migration Phases (ALB Path)
 
 ### Phase 1: Prerequisites
-1. Install AWS Load Balancer Controller (v2.7+)
+1. Install AWS Load Balancer Controller (**v2.7.2+** for the ALB Ingress path)
 2. Provision ACM certificates for all TLS hosts
 3. Ensure IAM roles/policies for LB Controller
 
@@ -145,11 +148,11 @@ alb.ingress.kubernetes.io/group.order: "10"
 - All `nginx.ingress.kubernetes.io/*` annotations identified
 - Each has a mapped ALB equivalent or documented removal reason
 
-**Rating:**
-- 🟢 GREEN: All annotations have clear ALB equivalents
-- 🟡 AMBER: Most map cleanly, some need WAF/app-level handling (CORS, body-size)
-- 🔴 RED: Heavy use of `configuration-snippet` or `server-snippet` (no ALB equivalent)
-- ⬜ UNKNOWN: Cannot parse annotations
+**Impact (per Impact Indicator):**
+- 🟡 1–2 (Low): All annotations have clear ALB equivalents
+- 🟠 3–4 (Medium): Most map cleanly, some need WAF/app-level handling (CORS, body-size)
+- 🔴 5 (High): Heavy use of `configuration-snippet` or `server-snippet` (no ALB equivalent)
+- ⬜ Unknown: Cannot parse annotations
 
 ### ALB.2 — ACM Certificate Readiness
 
@@ -157,11 +160,11 @@ alb.ingress.kubernetes.io/group.order: "10"
 - All TLS hosts have matching ACM certificates (or can use certificate-discovery)
 - Certificates are in ISSUED state in the correct region
 
-**Rating:**
-- 🟢 GREEN: All certs available in ACM
-- 🟡 AMBER: Some certs need provisioning
-- 🔴 RED: Certs use private CA or non-standard issuance
-- ⬜ UNKNOWN: Cannot check ACM
+**Impact (per Impact Indicator):**
+- 🟡 1–2 (Low): All certs available in ACM
+- 🟠 3–4 (Medium): Some certs need provisioning
+- 🔴 5 (High): Certs use private CA or non-standard issuance
+- ⬜ Unknown: Cannot check ACM
 
 ### ALB.3 — AWS LB Controller Readiness
 
@@ -170,8 +173,8 @@ alb.ingress.kubernetes.io/group.order: "10"
 - IAM role with correct policy attached
 - IngressClass `alb` exists
 
-**Rating:**
-- 🟢 GREEN: Controller installed, correct version, IAM ready
-- 🟡 AMBER: Controller present but needs upgrade
-- 🔴 RED: Controller not installed
-- ⬜ UNKNOWN: Cannot determine
+**Impact (per Impact Indicator):**
+- 🟡 1–2 (Low): Controller installed, correct version, IAM ready
+- 🟠 3–4 (Medium): Controller present but needs upgrade
+- 🔴 5 (High): Controller not installed
+- ⬜ Unknown: Cannot determine

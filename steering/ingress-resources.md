@@ -1,5 +1,8 @@
 # Ingress Resource Analysis
 
+> **Rating model:** Express every finding as **Impact 1–5** using the *Impact Indicator* rubric (security/reputation · business/revenue · nature & effort to remediate). Band mapping is a starting point — GREEN→🟡 1–2, AMBER→🟠 3–4, RED→🔴 5 — but the Impact Indicator criteria set the final score (e.g. an easy-to-deploy prerequisite stays 🟡 low even if it blocks a path). All checks are **read-only** (`kubectl get/describe`, `aws … describe/list`).
+
+
 ## Purpose
 Analyze existing Ingress resources to determine what must be converted to HTTPRoute and identify conversion complexity.
 
@@ -35,11 +38,11 @@ Analyze existing Ingress resources to determine what must be converted to HTTPRo
 | `alb.ingress.kubernetes.io/certificate-arn` | Gateway listener `tls.certificateRefs` or annotation |
 | `alb.ingress.kubernetes.io/actions.*` | HTTPRoute `filters` + `backendRefs` |
 
-**Rating:**
-- 🟢 GREEN: All annotations map to HTTPRoute features or Gateway annotations
-- 🟡 AMBER: Most map cleanly, some need AWS service substitution (WAF, Cognito)
-- 🔴 RED: Heavy use of nginx snippets/lua with no Gateway API equivalent
-- ⬜ UNKNOWN: Cannot parse annotations
+**Impact (per Impact Indicator):**
+- 🟡 1–2 (Low): All annotations map to HTTPRoute features or Gateway annotations
+- 🟠 3–4 (Medium): Most map cleanly, some need AWS service substitution (WAF, Cognito)
+- 🔴 5 (High): Heavy use of nginx snippets/lua with no Gateway API equivalent
+- ⬜ Unknown: Cannot parse annotations
 
 ### 3.2 — TLS Configuration
 
@@ -59,11 +62,11 @@ Analyze existing Ingress resources to determine what must be converted to HTTPRo
 - K8s Secret certs: referenced via `tls.certificateRefs` in Gateway listener
 - SSL passthrough: use TLSRoute (not HTTPRoute)
 
-**Rating:**
-- 🟢 GREEN: Edge termination with ACM — maps directly to Gateway listener
-- 🟡 AMBER: Using K8s Secrets — need cert-manager Gateway integration or migrate to ACM
-- 🔴 RED: SSL passthrough required — needs TLSRoute (experimental channel CRD)
-- ⬜ UNKNOWN: Cannot determine TLS configuration
+**Impact (per Impact Indicator):**
+- 🟡 1–2 (Low): Edge termination with ACM — maps directly to Gateway listener
+- 🟠 3–4 (Medium): Using K8s Secrets — need cert-manager Gateway integration or migrate to ACM
+- 🔴 5 (High): SSL passthrough required — needs TLSRoute (experimental channel CRD)
+- ⬜ Unknown: Cannot determine TLS configuration
 
 ### 3.3 — Backend Service Compatibility
 
@@ -77,10 +80,10 @@ Analyze existing Ingress resources to determine what must be converted to HTTPRo
 2. Verify each Service exists with healthy endpoints
 3. Flag any cross-namespace references — these need ReferenceGrant resources
 
-**Rating:**
-- 🟢 GREEN: All backends healthy, same-namespace, ClusterIP
-- 🟡 AMBER: Some cross-namespace backends (need ReferenceGrant) or NodePort services
-- 🔴 RED: Missing backends or services with no endpoints
-- ⬜ UNKNOWN: Cannot verify endpoint health
+**Impact (per Impact Indicator):**
+- 🟡 1–2 (Low): All backends healthy, same-namespace, ClusterIP
+- 🟠 3–4 (Medium): Some cross-namespace backends (need ReferenceGrant) or NodePort services
+- 🔴 5 (High): Missing backends or services with no endpoints
+- ⬜ Unknown: Cannot verify endpoint health
 
 **Topology data to collect:** Record every Ingress→backend mapping for the 3D visualization.

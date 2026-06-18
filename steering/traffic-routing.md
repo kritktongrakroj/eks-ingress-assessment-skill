@@ -1,5 +1,8 @@
 # Traffic & Routing Complexity
 
+> **Rating model:** Express every finding as **Impact 1–5** using the *Impact Indicator* rubric (security/reputation · business/revenue · nature & effort to remediate). Band mapping is a starting point — GREEN→🟡 1–2, AMBER→🟠 3–4, RED→🔴 5 — but the Impact Indicator criteria set the final score (e.g. an easy-to-deploy prerequisite stays 🟡 low even if it blocks a path). All checks are **read-only** (`kubectl get/describe`, `aws … describe/list`).
+
+
 ## Purpose
 Assess routing complexity and map current patterns to Gateway API HTTPRoute equivalents.
 
@@ -26,11 +29,11 @@ Assess routing complexity and map current patterns to Gateway API HTTPRoute equi
 - Ingress `Exact` → HTTPRoute `Exact`
 - Ingress `ImplementationSpecific` → ❌ Must be converted to Exact or PathPrefix
 
-**Rating:**
-- 🟢 GREEN: Simple host+path routing, all Prefix/Exact — direct HTTPRoute mapping
-- 🟡 AMBER: Some ImplementationSpecific paths or regex patterns needing conversion
-- 🔴 RED: Heavy regex routing, >20 rules per Ingress, complex rewrite chains
-- ⬜ UNKNOWN: Cannot parse routing rules
+**Impact (per Impact Indicator):**
+- 🟡 1–2 (Low): Simple host+path routing, all Prefix/Exact — direct HTTPRoute mapping
+- 🟠 3–4 (Medium): Some ImplementationSpecific paths or regex patterns needing conversion
+- 🔴 5 (High): Heavy regex routing, >20 rules per Ingress, complex rewrite chains
+- ⬜ Unknown: Cannot parse routing rules
 
 **Report output format:** In the report's "Current Config" column, show actual config as compact 1-liner:
 `Ingress/<name>: <host><path> → <backend>:<port> (<pathType>, TLS:<yes/no>)`
@@ -54,11 +57,11 @@ Example: `Ingress/nginx-alb: app.example.com/* → nginx-service:80 (Prefix, TLS
 2. Map each to Gateway API equivalent or workaround
 3. Flag features with no equivalent
 
-**Rating:**
-- 🟢 GREEN: Features used have direct HTTPRoute equivalents (weighted routing, header matching, rewrites)
-- 🟡 AMBER: Some features need AWS service substitution (WAF for rate limiting, Cognito for auth)
-- 🔴 RED: Critical dependency on nginx lua/snippets with no Gateway API path
-- ⬜ UNKNOWN: Cannot determine feature usage
+**Impact (per Impact Indicator):**
+- 🟡 1–2 (Low): Features used have direct HTTPRoute equivalents (weighted routing, header matching, rewrites)
+- 🟠 3–4 (Medium): Some features need AWS service substitution (WAF for rate limiting, Cognito for auth)
+- 🔴 5 (High): Critical dependency on nginx lua/snippets with no Gateway API path
+- ⬜ Unknown: Cannot determine feature usage
 
 ### 5.3 — Cross-Namespace Routing
 
@@ -72,10 +75,24 @@ Example: `Ingress/nginx-alb: app.example.com/* → nginx-service:80 (Prefix, TLS
 2. List Services of type ExternalName
 3. Check for Istio VirtualService / Linkerd ServiceProfile CRDs
 
-**Rating:**
-- 🟢 GREEN: All routing within same namespace — straightforward HTTPRoute conversion
-- 🟡 AMBER: Some cross-namespace routing — need to create ReferenceGrant resources
-- 🔴 RED: Heavy service mesh integration — Gateway API migration must coordinate with mesh
-- ⬜ UNKNOWN: Cannot determine cross-namespace routing
+**Impact (per Impact Indicator):**
+- 🟡 1–2 (Low): All routing within same namespace — straightforward HTTPRoute conversion
+- 🟠 3–4 (Medium): Some cross-namespace routing — need to create ReferenceGrant resources
+- 🔴 5 (High): Heavy service mesh integration — Gateway API migration must coordinate with mesh
+- ⬜ Unknown: Cannot determine cross-namespace routing
+
+### 5.4 — ALB IngressGroup Sharing
+
+**What to check (read-only):** `alb.ingress.kubernetes.io/group.name` and `group.order` on each Ingress.
+- Multiple Ingresses (often across namespaces) sharing one `group.name` are served by a **single ALB**. This materially affects Gateway listener design and ALB consolidation during migration.
+- **Record group membership in the topology JSON and Routing Topology** — do not drop it.
+
+### 5.5 — Declarative Blind Spot & Optional Route Verification
+
+**Blind spot (always note when snippets are present):** topology and routing are derived from **Ingress objects only**. Routes injected via `server-snippet` / `configuration-snippet` (e.g. a raw `location` block) **do not appear** as Ingress rules/backends, so the 3D diagram and Routing Topology under-count them. State this limitation explicitly in the report whenever snippet annotations exist — these are exactly the routes that block migration.
+
+**Optional deep read (requires `--allow-sensitive-data-access`, still read-only):**
+- Enumerate snippet-injected routes: `kubectl exec <nginx-pod> -n <ns> -- nginx -T` and scan for `location` blocks not represented by an Ingress.
+- Verify live L7 behavior in-cluster: from a throwaway pod, `wget/curl` each controller's ClusterIP with the `Host:` header and record the status code (200/301/308/404/5xx) in Routing Topology. This raises confidence that routing actually works (vs. config-only inference). Keep it **optional** — the assessment is config-first.
 
 **Topology data to collect:** Record all routing patterns, hosts, paths, and features for the 3D visualization.

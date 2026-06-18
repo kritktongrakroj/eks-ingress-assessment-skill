@@ -109,7 +109,7 @@ See `samples/nginx/` (input) and `samples/alb/` (ATX output) directories.
 
 Once ATX has transformed your manifests:
 
-1. Ensure AWS Load Balancer Controller v2.7+ is installed in your EKS cluster
+1. Ensure AWS Load Balancer Controller **v2.7.2+** (ALB Ingress path) is installed — or use EKS Auto Mode's built-in `eks.amazonaws.com/alb`
 2. Verify ACM certificates are provisioned and in ISSUED state
 3. `kubectl apply --dry-run=client -f <migrated-file>` to validate
 4. Deploy to staging first

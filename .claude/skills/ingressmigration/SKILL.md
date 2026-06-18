@@ -1,6 +1,6 @@
 ---
 name: EKS Ingress Migration
-description: "Assess EKS Ingress architecture - give an AWS account ID, discover all clusters across regions, evaluate migration options, rate each area GREEN/AMBER/RED, and generate per-cluster assessment reports. Use when: ingress migration, ALB ingress, nginx ingress, Gateway API, load balancer controller, ingress modernization, ingress audit."
+description: "Assess EKS Ingress architecture - give an AWS account ID, discover all clusters across regions, evaluate migration options, score each area by Impact (1–5), and generate per-cluster assessment reports. Use when: ingress migration, ALB ingress, nginx ingress, Gateway API, load balancer controller, ingress modernization, ingress audit."
 ---
 
 # EKS Ingress Migration Skill
@@ -15,7 +15,7 @@ This skill assesses your live EKS cluster's current Ingress architecture and eva
 
 | Option | Status | Notes |
 |--------|--------|-------|
-| Gateway API (HTTPRoute + Gateway) | ✅ Assessed | Official Kubernetes successor to Ingress. AWS LB Controller v2.7+ supports it. |
+| Gateway API (HTTPRoute + Gateway) | ✅ Assessed | Official Kubernetes successor to Ingress. AWS LB Controller supports it (L7 ≥ v2.14, L4 ≥ v2.13; built-in on EKS Auto Mode). |
 | AWS Load Balancer Controller (ALB Ingress) | ✅ Assessed | Stay on Ingress API but swap NGINX→ALB. Gets WAF, Cognito, Shield. |
 | AWS Transform (ATX) — Automated | ✅ Included | TD included. For customers with ATX access — fully automated manifest rewriting. |
 
@@ -42,7 +42,7 @@ Pre-flight → Assess (7 sections) → Current Architecture Topology → Dual Re
 
 | Area | Key Checks |
 |------|------------|
-| Ingress Discovery | Controllers, versions, IngressClass, Ingress resource inventory |
+| Ingress Discovery | Controllers, **versions/EOL/CVE**, IngressClass, inventory, **EKS Auto Mode** detection |
 | Ingress Resource Analysis | Annotations, path rules, TLS, backends — conversion complexity |
 | DNS & Certificates | external-dns, cert-manager, ACM — Gateway API source support |
 | Traffic & Routing | Routing patterns, advanced features, mapping to HTTPRoute |
@@ -53,11 +53,11 @@ Pre-flight → Assess (7 sections) → Current Architecture Topology → Dual Re
 
 | Nav Page | Contains |
 |----------|----------|
-| Overview | Cluster info table, Executive Summary (top), 3D Routing Diagram |
-| Assessment Summary | Assessment Summary table, Current Configuration, Ingress Discovery |
-| Routing Topology | Routing table (per-route line items), Traffic & Routing |
-| Migration Approach | Migration Options — Gateway API phases, ALB Controller path, ATX automated path, Export Manifests button |
-| Appendix | Blockers, Recommendations, Investigate Manually, Ingress Resource Analysis, DNS & Certificates, Migration Risk, Migration Planning, AWS Reference Links |
+| Overview | Cluster info table, Executive Summary (top), 3D Routing Diagram, Impact Indicator (rubric, before Assessment Summary) |
+| Assessment Summary | Assessment Summary table (Impact-ordered), Current Configuration, Ingress Discovery |
+| Routing Topology | Routing table (per-route line items + Impact), Traffic & Routing |
+| Migration Approach | Migration Options (Option 1 Gateway API, Option 2 ALB, Option 3 ATX — consistent panels + per-option download buttons), Blockers, Recommendations, Export Manifests button |
+| Analysis | Ingress Resource Analysis, DNS & Certificates Analysis, Migration Risk, Migration Planning, AWS Reference Links |
 
 ## Steering Files
 
@@ -84,7 +84,7 @@ Before executing checks for any section, read the corresponding steering file fr
 4. **Always load the relevant steering file before executing checks.**
 5. **Only rate based on what was actually observed — never assume.**
 6. If a check fails or returns no data, mark UNKNOWN.
-7. Every RED finding must have a specific, actionable recommendation.
+7. Every high-impact (4–5) finding must have a specific, actionable recommendation.
 8. **Collect topology data during assessment** — every Ingress host, path, backend, controller, namespace, and the nodes (EC2 instances). This feeds the 3D Routing Diagram view.
 9. **Do NOT paste raw YAML/config in findings.** Summarize what was found.
 10. **Use tables for all structured data.** No prose lists of facts.
@@ -192,12 +192,26 @@ aws eks describe-cluster --name <cluster> --region <region> --output json
 list_k8s_resources(cluster_name="<cluster>", kind="Node", api_version="v1")
 ```
 
+**Action 6 — Cluster health gate (read-only) — REQUIRED before assessing**
+
+An assessment of an unhealthy cluster is misleading. Verify, read-only:
+1. **Nodes Ready:** `kubectl get nodes` — flag any not `Ready` (Auto Mode may have 0 nodes until a workload schedules; note that separately).
+2. **Ingress controllers healthy:** for each controller Deployment, confirm `availableReplicas > 0` and no pods in `ImagePullBackOff` / `ErrImagePull` / `CrashLoopBackOff`. **If a controller itself is unhealthy, surface it as the first finding** — its routing claims cannot be trusted.
+3. **Egress sanity (if pods can't pull):** cluster-wide `ImagePullBackOff` usually means broken node egress. Optionally inspect the node subnets' route table for a `blackhole` default route (deleted NAT gateway) via `aws ec2 describe-route-tables`. Report it as an environment caveat — do not attempt to fix it (read-only).
+
+**Action 7 — Detect EKS Auto Mode (read-only)**
+
+```
+aws eks describe-cluster --name <cluster> --query 'cluster.computeConfig' --output json
+```
+Auto Mode is enabled when `computeConfig.enabled = true`. On Auto Mode, recognize the **managed** load-balancing IngressClass `eks.amazonaws.com/alb` (parameters `apiGroup: eks.amazonaws.com`, `kind: IngressClassParams`) and `loadBalancerClass: eks.amazonaws.com/nlb` — these are built-in, not a self-managed AWS LB Controller. Record Auto Mode status in Current Configuration; it changes Migration Options guidance (ALB path needs no LBC install).
+
 ### Steps 1–7: Run Assessment (per cluster)
 
 For each cluster, run the full assessment:
 1. Read each steering file in order
 2. Execute the checks
-3. Rate each item
+3. Score each item by Impact (1–5) per the Impact Indicator
 4. **Collect topology data** — Ingress resources, controllers, backend services, and Node information (instance IDs, instance types)
 
 ### Step 8: Current Architecture Topology (per cluster)
@@ -289,12 +303,16 @@ For each cluster that has Ingress resources, generate manifest files:
 
 ## Rating Rubric
 
-| Rating | Meaning |
-|--------|---------|
-| GREEN | No issues found in this area |
-| AMBER | Some items need attention |
-| RED | Significant issues — must address before migration |
-| UNKNOWN | Cannot determine — investigate manually |
+Score every finding by **Impact 1–5** using the **Impact Indicator** rubric (defined in the report, before Assessment Summary). Weigh security/reputation, business/revenue, and the nature & effort to remediate.
+
+| Impact | Band | Meaning |
+|--------|------|---------|
+| 🟡 1–2 | Low | Hardening gap / best-practice; no revenue/downtime impact; hours–1 day, single-scope. |
+| 🟠 3–4 | Medium | Limited-reputation breach or short-downtime revenue loss; tech debt hard to reverse; area/single-cluster scope. |
+| 🔴 5 | High | Major/reputational breach or prolonged downtime; needs re-design/re-architecture (may need approval). |
+| ⬜ Unknown | — | Cannot determine — state what to check and why. |
+
+> Easy-to-deploy prerequisites (e.g. installing CRDs) are **Low** even if they block a path. Never use GREEN/AMBER/RED.
 
 ## Report Output
 

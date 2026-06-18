@@ -178,7 +178,7 @@ Save to `~/ingress_migration/<cluster>/topology.json`. Include nodes (EC2 instan
 | Step | Action |
 |------|--------|
 | 1 | Install Gateway API CRDs |
-| 2 | Verify/upgrade AWS LB Controller (v2.7+) |
+| 2 | Verify/upgrade AWS LB Controller (**≥ v2.14** for L7 Gateway API; not needed on Auto Mode) |
 | 3 | Create GatewayClass |
 | 4 | Create Gateway per listener group |
 
@@ -247,7 +247,7 @@ Stay on the Ingress API but swap NGINX annotations for ALB annotations. Gets you
 
 | Step | Action | Validation |
 |------|--------|-----------|
-| 1 | Install AWS LB Controller v2.7+ | `kubectl get deploy -n kube-system aws-load-balancer-controller` |
+| 1 | Install AWS LB Controller **v2.7.2+** (ALB Ingress); not needed on EKS Auto Mode | `kubectl get deploy -n kube-system aws-load-balancer-controller` |
 | 2 | Provision ACM certificates | `aws acm list-certificates` — all ISSUED |
 | 3 | Convert annotations per mapping above | `kubectl apply --dry-run=client -f <file>` |
 | 4 | Deploy migrated Ingress (new ALB created) | `kubectl get ingress -A` shows ALB address |
@@ -418,6 +418,8 @@ python3 tools/report_to_html.py \
 Do NOT generate HTML manually. Always use the script.
 
 ## Step 6: Export Manifests
+
+> **Directory contract (required by `report_to_html.py`):** lay manifests out as `current/`, `target/gateway-api/`, and `target/alb/` under the cluster's `manifests/` dir. The renderer recursively loads these subtrees (`rglob`) and powers the `[[DL:current]]` / `[[DL:gateway-api]]` / `[[DL:alb]]` download buttons — a flat `target/*.yaml` layout will not be found.
 
 After generating the HTML report, export manifest files for each cluster:
 
