@@ -539,6 +539,16 @@ function toggleTheme(){{
       setTimeout(()=>el.scrollIntoView({{behavior:'smooth',block:'start'}}),50);
     }});
   }});
+  // In-content anchor links (e.g. "see blocker"): resolve by element id, open its <details>, scroll
+  document.querySelectorAll('.content a[href^="#"]').forEach(link=>{{
+    link.addEventListener('click',function(ev){{
+      const id=this.getAttribute('href').slice(1);if(!id)return;
+      const el=document.getElementById(id);if(!el)return;
+      ev.preventDefault();
+      let n=el;while(n){{if(n.tagName==='DETAILS'&&!n.open)n.open=true;n=n.parentElement;}}
+      setTimeout(()=>el.scrollIntoView({{behavior:'smooth',block:'start'}}),60);
+    }});
+  }});
   setupObserver();
 }})();
 </script>
