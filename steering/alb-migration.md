@@ -87,6 +87,8 @@ alb.ingress.kubernetes.io/transforms.<service-name>: |
 
 **Note:** Add comment in manifest: `# REMOVED: CORS — configure via AWS WAF rules or application middleware`
 
+> **Effort reality (High, not Medium):** CORS has **no faithful ALB/WAF equivalent** — AWS WAF cannot inject CORS *response* headers; in practice CORS must move to the **application backend (code change)**. NGINX `rate-limit`/`limit-rps` is per-second, per-path/per-client; **AWS WAF rate-based rules** are coarser (per-IP over a multi-minute window), **cost extra**, and use a completely different config model. Treat CORS / rate-limit / IP-allowlist conversions as **🔴 High impact/effort**, not a simple Medium swap.
+
 ### Authentication
 
 | Before (NGINX) | After (ALB) |
@@ -149,10 +151,12 @@ alb.ingress.kubernetes.io/group.order: "10"
 - Each has a mapped ALB equivalent or documented removal reason
 
 **Impact (per Impact Indicator):**
-- 🟡 1–2 (Low): All annotations have clear ALB equivalents
-- 🟠 3–4 (Medium): Most map cleanly, some need WAF/app-level handling (CORS, body-size)
-- 🔴 5 (High): Heavy use of `configuration-snippet` or `server-snippet` (no ALB equivalent)
+- 🟡 1–2 (Low): Only mechanical changes (class swap on the *same* controller, scheme/target-type, simple path) — but see the cutover note below.
+- 🟠 3–4 (Medium): URI rewrites → `transforms`, TLS → ACM, timeouts; plus the **new-ALB + DNS cutover** every class switch incurs.
+- 🔴 5 (High): `configuration-snippet`/`server-snippet`, **CORS, rate-limit, IP-allowlist, external auth** — no faithful ALB equivalent; needs WAF (extra cost, coarser) or **application/code changes**.
 - ⬜ Unknown: Cannot parse annotations
+
+> **Cutover note (applies to EVERY nginx→alb conversion):** switching `ingressClassName: nginx → alb` is a **cross-controller** change — the AWS LB Controller provisions a **new ALB**, and **traffic does not move until DNS is cut over** to it. This is a parallel-run + DNS cutover, **never** a zero-impact file edit. Therefore a bare class switch is **at least Medium**, even when the YAML diff is one line. (Changing the deprecated `kubernetes.io/ingress.class` annotation to `spec.ingressClassName` on the **same** class is the only genuinely Low case.)
 
 ### ALB.2 — ACM Certificate Readiness
 

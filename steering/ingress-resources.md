@@ -68,6 +68,8 @@ Analyze existing Ingress resources to determine what must be converted to HTTPRo
 - 🔴 5 (High): SSL passthrough required — needs TLSRoute (experimental channel CRD)
 - ⬜ Unknown: Cannot determine TLS configuration
 
+> **Cutover-risk caveat — the *migration action* is not Low.** Moving the cert store (K8s Secret → ACM) **at the same time as** the routing/class change risks **SSL/TLS handshake failures or downtime** if DNS lags or ACM domain validation hasn't completed. The "if-left-as-is" Impact may be low (the app serves TLS today), but the **remediation step** must be rated ≥ Medium and sequenced: **(1)** request/validate the ACM cert to `ISSUED` first, **(2)** keep the existing NGINX path live, **(3)** switch class / cut over DNS only after the new ALB + cert are verified. Never bundle "migrate TLS to ACM" into a Low/one-step task.
+
 ### 3.3 — Backend Service Compatibility
 
 **What to check:**

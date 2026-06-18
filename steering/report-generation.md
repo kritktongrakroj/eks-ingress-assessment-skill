@@ -78,6 +78,8 @@ Save to `~/ingress_migration/<cluster>/topology.json`. Include nodes (EC2 instan
 ## Impact Indicator
 
 > Place this rubric **before Assessment Summary** (Overview group). EVERY Impact score in the report MUST follow it — do not invent ad-hoc severities. Impact weighs three dimensions: security/reputation, business/revenue, and nature & effort to remediate; score the dominant one. Render as a table, one row per band, each cell a bullet list.
+>
+> **Execution risk counts — do NOT score by YAML-edit size.** A small manifest change can still be high-impact. Specifically: changing `ingressClassName` to a *different controller* (e.g. nginx→alb) **provisions a brand-new load balancer** and only takes traffic after a **DNS cutover** (it is a parallel-run + cutover, not a no-op edit); moving a feature that has **no faithful equivalent** (CORS, rate-limit, external auth) to WAF/app usually needs **application/code changes**; and any TLS/cert-store change done together with routing changes risks **SSL handshake errors / downtime**. Score these by the operational risk, not the diff size.
 
 | Impact | Meaning |
 |--------|---------|
@@ -173,6 +175,7 @@ Save to `~/ingress_migration/<cluster>/topology.json`. Include nodes (EC2 instan
 
 > **What:** Kubernetes-native successor to Ingress (HTTPRoute + Gateway). · **Effort:** Medium · **Best when:** you want the long-term standard.
 > **Routing config:** [[DL:gateway-api]]
+> **Caveats:** L7 ALB Gateway API support is recent (HTTPRoute ≥ v2.14, GA 2026 line) — verify TLS handling and routing filters per route before cutover. On **EKS Auto Mode** running a self-managed LBC too, scope `GatewayClass`/`IngressClass` per controller to avoid !!load-balancer ownership conflicts!!.
 
 #### Phase 1 — Foundation
 | Step | Action |

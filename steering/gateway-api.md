@@ -9,6 +9,12 @@ Gather the **Gateway API prerequisites** for **Migration Options → Option 1 (G
 ## Context
 Gateway API is the official successor to Ingress in Kubernetes. The Ingress resource will not receive new features and is on a deprecation path. AWS Load Balancer Controller supports Gateway API natively — **L4 (TCP/UDP/TLSRoute) ≥ v2.13.3, L7 (HTTPRoute/GRPCRoute) ≥ v2.14** (GA from the 2026 release line) — via the `gateway.k8s.aws/alb` controller name. The LBC targets Gateway API CRDs **v1.3.0**. On **EKS Auto Mode**, Gateway API/load balancing is provided through the `eks.amazonaws.com` API group (built-in) rather than a self-managed LBC.
 
+## Caveats & Risks (MUST surface in Migration Options → Option 1)
+
+Even when the LBC version is sufficient, do **not** present Gateway API as a frictionless drop-in:
+- **L7 feature parity is still maturing.** ALB Gateway API (HTTPRoute/GRPCRoute) reached support only in v2.14 and GA in the 2026 line; some **TLS handling and routing-filter** behaviours are not yet at parity with the mature Ingress API. Recommend verifying the specific filters/TLS options each route needs against the installed LBC version **before** committing to a cutover.
+- **EKS Auto Mode load-balancer ownership conflict.** If the cluster runs **both** Auto Mode's built-in controller (`eks.amazonaws.com`) **and** a self-managed AWS LB Controller (`gateway.k8s.aws/alb` / `ingress.k8s.aws/alb`) — as `eks-devops-sin` does — two reconcilers can contend for the **same** Gateway/Ingress. Scope ownership explicitly (distinct `GatewayClass`/`IngressClass` per controller) so they don't fight over a load balancer. Flag this whenever both are present.
+
 ## Checks to Execute
 
 ### 2.1 — Gateway API CRDs
