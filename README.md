@@ -7,7 +7,7 @@
 
 > ⚠️ **Important:** This is sample code for demonstration and educational purposes only. It is not intended for production use without additional security testing and review. Use at your own risk.
 
-A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) / [Kiro CLI](https://kiro.dev) skill that performs automated EKS Ingress migration assessments. It connects to live EKS clusters, discovers all Ingress resources, rates migration readiness across 7 areas, and generates an interactive HTML report with 3D routing diagram visualization and ready-to-apply manifests.
+A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) / [Kiro CLI](https://kiro.dev) skill that performs automated EKS Ingress migration assessments. It connects to live EKS clusters, discovers all Ingress resources, scores migration **impact (1–5)** across all assessment areas, and generates an interactive HTML report with 3D routing diagram visualization and ready-to-apply manifests.
 
 **Three migration paths supported:**
 - **Gateway API** (HTTPRoute + Gateway) — the Kubernetes-native successor to Ingress
@@ -78,14 +78,18 @@ The skill discovers all EKS clusters across configured regions, shows a discover
 | 6 | **Migration Planning** | Scope, conversion complexity per route, timeline estimate |
 | 7 | **Migration Options** | Gateway API phased plan (Foundation → Convert → Cutover → Cleanup) |
 
-### Rating Rubric
+### Impact Indicator (rating model)
 
-| Rating | Meaning |
-|--------|---------|
-| 🟢 GREEN | No issues found — ready to proceed |
-| 🟡 AMBER | Some items need attention before migration |
-| 🔴 RED | Significant issues — must address first |
-| ⬜ UNKNOWN | Cannot determine — investigate manually |
+Findings are scored by **Impact 1–5** — weighing security/reputation, business/revenue, and the nature & effort to remediate (not by how small the YAML edit is):
+
+| Impact | Band | Meaning |
+|--------|------|---------|
+| 🟡 1–2 | Low | Hardening gap / best practice; no revenue or downtime impact; hours–1 day, single-scope. |
+| 🟠 3–4 | Medium | Limited-reputation breach or short-downtime revenue loss; tech debt that's hard to reverse; area/single-cluster scope. |
+| 🔴 5 | High | Major/reputational breach or prolonged downtime; needs re-design/re-architecture (may need approval). |
+| ⬜ Unknown | — | Cannot determine — investigate manually. |
+
+> Migration-execution risk counts: a one-line class switch that provisions a new ALB + needs DNS cutover, or a feature with no faithful equivalent (CORS, rate-limit, auth), is **not** automatically Low.
 
 ## Output
 

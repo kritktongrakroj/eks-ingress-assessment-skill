@@ -91,7 +91,7 @@ Before executing checks for any section, read the corresponding steering file fr
 10. **Use tables for all structured data.** No prose lists of facts.
 11. **No filler text.** Go straight to content.
 12. **Every finding cell: max 2 sentences.**
-13. **No ASCII art diagrams.** The HTML has the 3D topology.
+13. **No ASCII art diagrams.** The HTML has the 3D routing diagram.
 14. **No ID column in tables.** Remove all "ID" columns.
 15. **Multi-value cells:** use `<br>` for line breaks, not commas.
 16. **Executive Summary must be bullet points** — precise and comprehensive.
@@ -271,7 +271,7 @@ python3 tools/report_to_html.py \
   -o ~/ingress_migration/EKS-Ingress-Migration-<YYYY-MM-DD>-<HHMM>.html
 ```
 
-The HTML report has a **cluster dropdown** in the left nav — selecting a cluster switches all content and the 3D topology.
+The HTML report has a **cluster dropdown** in the left nav — selecting a cluster switches all content and the 3D routing diagram.
 
 **Always generate both.** Markdown files are the source of truth; the HTML is for presentation.
 
@@ -338,7 +338,7 @@ All files go to `~/ingress_migration/` organized by cluster:
 └── EKS-Ingress-Migration-<YYYY-MM-DD>-<HHMM>.html  # Combined HTML (all clusters)
 ```
 
-The single HTML report contains all clusters with a **dropdown selector** in the left nav. Switching clusters swaps the content and 3D topology view. The Migration Approach section includes **Export Manifests** buttons for both Gateway API (orange) and ALB Controller (blue) downloads.
+The single HTML report contains all clusters with a **dropdown selector** in the left nav. Switching clusters swaps the content and 3D routing diagram. The Migration Approach section includes **Export Manifests** buttons for both Gateway API (orange) and ALB Controller (blue) downloads.
 
 **CLI usage:**
 ```bash

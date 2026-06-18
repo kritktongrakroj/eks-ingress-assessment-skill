@@ -14,7 +14,7 @@ This is a Claude Code / Kiro skill that assesses EKS Ingress architecture and ev
 1. **Pre-flight** — Discover cluster, validate permissions
 2. **Assessment (Steps 1-7)** — Load steering files, execute checks, score Impact 1–5 (per the Impact Indicator), collect topology data (including EC2 nodes)
 3. **Current Architecture** — Compile topology JSON, then immediately proceed to report generation
-4. **Dual Report** — Automatically generate both markdown (detailed) and HTML (visual with 3D topology) — do NOT pause to ask the user
+4. **Dual Report** — Automatically generate both markdown (detailed) and HTML (visual with 3D routing diagram) — do NOT pause to ask the user
 
 ## Critical Rules
 

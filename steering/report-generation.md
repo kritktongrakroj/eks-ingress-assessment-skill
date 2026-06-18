@@ -37,7 +37,7 @@ Save to `~/ingress_migration/<cluster>/topology.json`. Include nodes (EC2 instan
 4. **Every finding cell: max 2 sentences.**
 5. **No filler text.** Go straight to content.
 6. **No readiness score.** This is an assessment, not a scorecard.
-7. **No ASCII art diagrams.** The HTML has the 3D topology.
+7. **No ASCII art diagrams.** The HTML has the 3D routing diagram.
 8. **Multi-value cells in tables:** put each item on its own line using `<br>` (the renderer turns this into real line breaks). For **Current Configuration**, use nested bullet/sub-bullet lists instead of a table.
 9. **Executive Summary = one-shot understanding for a non-technical reader.** Top-level bullet per impact theme, indented sub-bullets for specifics. Bold the key term in each bullet; wrap the most damaging facts in `!! !!` (renders red).
 10. **Emphasis syntax (supported by the renderer):** `**bold**` for key terms, `!!red highlight!!` for high-impact / at-risk items, backticks for `versions/code`. Use sparingly — only words that carry the impact.
