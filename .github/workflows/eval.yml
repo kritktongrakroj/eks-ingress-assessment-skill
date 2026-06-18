@@ -1,0 +1,21 @@
+name: skill-eval
+
+# Self-test harness — fails any push/PR that drops skill accuracy or skews the
+# assessment model (wrong AWS facts, GREEN/AMBER/RED regressions, missing safety
+# guidance, broken renderer). See tests/run_evals.py.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run skill eval harness
+        run: python3 tests/run_evals.py

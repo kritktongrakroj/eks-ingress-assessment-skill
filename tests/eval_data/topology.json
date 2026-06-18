@@ -1,0 +1,18 @@
+{
+  "cluster": "eval-fixture",
+  "region": "ap-southeast-1",
+  "nodes": [
+    { "name": "i-0eval", "instanceId": "i-0eval", "instanceType": "c6g.large", "zone": "ap-southeast-1a" }
+  ],
+  "controllers": [
+    { "name": "alb", "displayName": "aws-load-balancer-controller", "namespace": "kube-system", "version": "v2.15.0", "type": "deployment" },
+    { "name": "nginx", "displayName": "ingress-nginx-controller", "namespace": "ingress-nginx", "version": "v1.3.0 (EOL)", "type": "deployment" }
+  ],
+  "ingresses": [
+    { "name": "demo", "namespace": "default", "controller": "alb", "hosts": ["demo.example.com"], "paths": [{ "path": "/", "pathType": "Prefix", "backend": "demo-svc", "port": 80 }], "tls": false, "annotations": {} }
+  ],
+  "services": [
+    { "name": "demo-svc", "namespace": "default", "type": "ClusterIP", "ports": [80] }
+  ],
+  "gatewayApi": { "crdsInstalled": false, "gatewayClasses": [], "gateways": [], "httpRoutes": [] }
+}
