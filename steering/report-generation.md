@@ -15,24 +15,32 @@ Compile ALL findings from sections 1–7. Every item must appear. No item may be
 
 ### 1.2 — What the score means
 
-The **Migration Difficulty Score** is a **0–100** number where **high = easy/low-risk to migrate off NGINX** and **low = hard / high business impact**. It is a *deduction model*: start at 100, subtract points for each rated finding, then apply a hard-blocker override. It does NOT pick a migration path — it tells the reader how much effort and risk leaving NGINX entails.
+The **Migration Difficulty Score** is a **0–100** number that reflects the **amount of change / effort** needed to leave NGINX: **high = little change (easy)**, **low = much change (hard)**. It is an *effort index*, not a manday estimate — we cannot know who implements it — so it ranks relative effort using the per-finding Impact ratings.
+
+Two design rules from operator feedback drive this version:
+
+- **The score is NOT artificially capped.** A single hard item no longer locks the whole score at "very hard." Items that genuinely need redesign are surfaced **separately** via the **Re-architecture Gate** (§1.4) — an informational badge that does not overwrite the number. This lets a mostly-clean estate score well while still flagging the one route that needs a rethink.
+- **Clean routes count.** Routes already on a target/maintained controller contribute **0 effort** and stay in the denominator, so "how much is already fine" is visible and pulls the score up.
 
 ### 1.3 — Map each finding to a scoring category
 
 Every finding belongs to exactly one category. Categories are weighted by a **max deduction cap** — the cap is how much that dimension can drag down "ease of migration".
 
+**0-effort routes (count, never deduct):** an Ingress/route already served by the **AWS Load Balancer Controller (ALB)**, **Gateway API**, or a **maintained 3rd-party controller that supports the NGINX feature set** is "done". It appears in the inventory denominator at **0 pts** and is **excluded** from the Scale/Volume work-count. Do not deduct for routes that need no migration.
+
 | Category | Max deduction | Findings that feed it (source sections) |
 |----------|--------------|-----------------------------------------|
-| Feature-Gap (untranslatable annotations) | 30 | Annotations with no faithful ALB/Gateway-API equivalent — CORS, rate-limit, `auth-url`/`auth-snippet`, `configuration-snippet`/`server-snippet`/Lua, ModSecurity, regex rewrite with capture groups (Ingress Resource Analysis, Traffic & Routing, Blockers) |
-| Routing Complexity | 20 | Regex paths, `rewrite-target`, canary/traffic-split, header/method routing, mirroring, cross-namespace fan-out (Traffic & Routing, Routing Topology) |
-| TLS & Certificates | 15 | cert-manager→ACM move, SNI, mTLS client-cert, TLS passthrough (DNS & Certificates Analysis) |
+| Feature-Gap — **No Equivalent (Tier A)** | 30 | NGINX features with **no faithful target equivalent and no standard workaround**: `configuration-snippet`/`server-snippet`/Lua, ModSecurity, mirror-to-arbitrary-backend, regex rewrite with capture groups, TLS passthrough, mTLS client-cert. **These also raise the Re-architecture Gate.** (Ingress Resource Analysis, Traffic & Routing, Blockers) |
+| Feature-Gap — **Workaround Exists (Tier B)** | 10 | Features with **no native ALB annotation but a well-known low-effort workaround**: **CORS** (app/middleware), **IP allowlist** (Security Group / WAF), **rate-limit** (WAF). Rate **Impact 2** when the feature is performance/hardening only; **Impact 3** when it is entangled with business-logic flow (multiple workstreams to coordinate). Never Impact 4–5. (Ingress Resource Analysis, Traffic & Routing) |
+| Routing Complexity | 20 | Regex paths, `rewrite-target`, canary/traffic-split, header/method routing, cross-namespace fan-out (Traffic & Routing, Routing Topology) |
+| TLS & Certificates | 15 | cert-manager→ACM move, SNI, multi-cert hosts (DNS & Certificates Analysis) |
 | DNS Cutover & Blast Radius | 15 | New ALB endpoint + DNS repoint, external-dns Gateway-API source maturity, hostname/TTL stability (DNS & Certificates Analysis, Migration Risk) |
 | Downtime / Rollback Readiness | 10 | New-LB provisioning, long-lived/stateful connections, presence of a weighted/blue-green rollback path (Migration Risk) |
 | Controller Health & EOL/CVE | 10 | NGINX version EOL, active CVE exposure, controller pod health (Ingress Discovery) |
-| Scale / Volume | 10 | Count of Ingress resources, namespaces, owning teams = raw effort (Ingress Discovery, Routing Topology) |
+| Scale / Volume | 10 | **Count of routes that actually need work** = total routes − 0-effort routes. Do NOT scale off the raw total. (Ingress Discovery, Routing Topology) |
 | Backend Compatibility | 5 | Exotic backends, `ExternalName`, service-type edge cases (Ingress Resource Analysis) |
 
-Caps deliberately sum to 115 (over-provisioned) so a genuinely messy cluster floors toward 0.
+Caps deliberately sum to 125 (over-provisioned) so a genuinely high-change estate floors toward 0 — that is intended: much change ⇒ low score.
 
 ### 1.4 — Scoring algorithm (deterministic — follow EXACTLY)
 
@@ -41,34 +49,36 @@ Caps deliberately sum to 115 (over-provisioned) so a genuinely messy cluster flo
 def base_points(impact):
     return {5: 10, 4: 6, 3: 4, 2: 2, 1: 1}[impact]   # Unknown (⬜) = 0 pts, but list it
 
+# Tier-B feature impact (CORS / IP-allowlist / rate-limit):
+#   Impact 2 if performance/hardening only (not in the business-logic path)
+#   Impact 3 if entangled with business-logic flow (multiple workstreams)
+# NEVER score a Tier-B feature above Impact 3.
+
+# 0-effort routes (already on ALB / Gateway API / supported 3rd-party):
+#   list them in the inventory, contribute 0 pts, EXCLUDE from Scale/Volume count.
+
 score = 100
 for each category:
     cat_deduction = 0
-    for each finding in this category:
+    for each finding in this category:        # 0-effort routes contribute nothing
         cat_deduction += base_points(finding.impact)
-    cat_deduction = min(cat_deduction, category_cap)   # apply the per-category cap
+    cat_deduction = min(cat_deduction, category_cap)
     score -= cat_deduction
 score = max(0, score)
 
-# --- Hard-Blocker Override (apply AFTER arithmetic) ---
-# Any blocker => migration needs re-architecture / approval => cap at 59 (VERY HARD).
-# A hard blocker is ALWAYS an Impact-5 finding, but not every Impact-5 is a hard blocker.
-has_hard_blocker = False
-if any production route uses an NGINX feature with NO ALB/Gateway-API equivalent
-   AND no documented workaround (Lua/snippet/mirror/regex-capture-rewrite):  has_hard_blocker = True
-if TLS passthrough OR mTLS client-cert termination is required
-   AND the target path cannot honor it without redesign:                     has_hard_blocker = True
-if cross-namespace / shared-LB routing cannot be expressed without ownership
-   changes (Gateway API ReferenceGrant gap) for a production route:          has_hard_blocker = True
-if a revenue-critical hostname cutover has no rollback path
-   (single hostname, no weighted / blue-green option):                       has_hard_blocker = True
-if the controller is EOL with an active exploitable CVE
-   AND no maintenance window is available:                                   has_hard_blocker = True
-if EKS Auto Mode managed load-balancing AND a self-managed AWS LB Controller
-   both run and race for ownership (must be reconciled first):               has_hard_blocker = True
-
-if has_hard_blocker:
-    score = min(score, 59)
+# --- Re-architecture Gate (INFORMATIONAL — does NOT change the score) ---
+# Count the routes/conditions that need a redesign or approval. Report this as a
+# separate badge next to the score. The score already reflects their effort via the
+# Tier-A / TLS / cross-namespace deductions — do NOT also cap the number.
+gate = 0
+gate += count(production routes using a Tier-A no-workaround feature: Lua/snippet/mirror/regex-capture)
+gate += count(routes needing TLS passthrough OR mTLS client-cert with no faithful target)
+gate += count(cross-namespace / shared-LB routes not expressible without ownership changes)
+gate += 1 if a revenue-critical hostname cutover has no rollback path (single hostname, no weighted/blue-green)
+gate += 1 if controller is EOL with an active exploitable CVE and no maintenance window
+gate += 1 if EKS Auto Mode managed LB and a self-managed AWS LB Controller race for ownership
+# gate == 0  -> "✓ No re-architecture blockers"
+# gate  > 0  -> "⛔ N route(s)/condition(s) need redesign or approval"
 ```
 
 ### 1.5 — Score interpretation
@@ -79,40 +89,43 @@ if has_hard_blocker:
 | 80–89 | **EASY** | Minor manual tweaks |
 | 70–79 | **MODERATE** | Several features need manual mapping; plan it |
 | 60–69 | **HARD** | Significant feature gaps or risky cutover |
-| 0–59 | **VERY HARD / RE-ARCHITECT** | Blocker(s) — needs redesign or approval |
+| 0–59 | **VERY HARD** | Large amount of change across the estate |
+
+The **Re-architecture Gate** is reported independently of the band: e.g. *"82 / EASY · ⛔ 1 route needs redesign"* is valid — the estate is mostly trivial, but one route still needs a rethink. Score answers "how much work?"; the gate answers "does anything need a redesign decision?".
 
 ### 1.6 — Build the Score Breakdown table (MANDATORY)
 
-Before writing the headline number, produce this table so the math is auditable. Sum `base_points` per category, apply the cap, and the row order is highest-deduction first. The **Total** row must equal `100 − score` (pre-override). If a hard blocker fired, add a final line stating the override.
+Before writing the headline, produce this table so the math is auditable. Sum `base_points` per category, apply the cap, order highest-deduction first. The **Total** must equal `100 − score`. Add a final **Re-architecture Gate** line stating the count and which routes (it does not change the total).
 
 ```
-| Category | Findings | Raw pts | Capped | Cap |
-|----------|----------|---------|--------|-----|
-| Feature-Gap | snippet on /checkout (5), CORS on api (4) | 16 | 16 | 30 |
-| Routing Complexity | rewrite-target ×3 (3) | 4 | 4 | 20 |
+| Category | Findings (impact) | Raw pts | Capped | Cap |
+|----------|-------------------|---------|--------|-----|
+| Feature-Gap — No Equivalent (Tier A) | snippet on /checkout (5) | 10 | 10 | 30 |
+| Feature-Gap — Workaround Exists (Tier B) | CORS (2), rate-limit (2), allowlist (2) | 6 | 6 | 10 |
 | ... | ... | ... | ... | ... |
 | **Total deductions** | | | **-XX** | |
+| **Re-architecture Gate** | 1 route — snippet on /checkout | — | — | — |
 ```
 
-Then: `Score = 100 − (total capped deductions) = XX`. If `has_hard_blocker`, append: `Hard blocker (<which>) → score capped at 59 (VERY HARD / RE-ARCHITECT).`
+Then: `Score = 100 − (total capped deductions) = XX — [LABEL]`, plus the gate badge.
 
-### 1.7 — Worked example
+### 1.7 — Worked example (reflecting the feedback)
 
-Findings: `configuration-snippet` Lua on the checkout route (Impact 5, Feature-Gap, no equivalent → also a hard blocker), `rewrite-target` regex on 3 routes (Impact 3, Routing), cert-manager→ACM move (Impact 3, TLS), 40 ingresses across 6 teams (Impact 4, Scale), NGINX 1.9.x EOL no active CVE (Impact 3, Controller).
+Estate: **18 ingresses** — **6 already on ALB** (0 effort, done), **2 annotation-only** moves, and **10 needing work**. Of the 10: `configuration-snippet` Lua on `/checkout` (Tier A, no workaround), CORS + rate-limit + IP-allowlist (Tier B, performance-only → Impact 2), `rewrite-target` on 3 routes (Routing, Impact 2 each = annotation-grade), cert-manager→ACM (TLS, Impact 3), NGINX 1.9.x EOL no active CVE (Controller, Impact 3).
 
 ```
-Feature-Gap:  10  (cap 30)
-Routing:       4  (cap 20)
-TLS:           4  (cap 15)
-Scale:         6  (cap 10)
-Controller:    4  (cap 10)
-Σ = 28  →  score = 100 − 28 = 72  (MODERATE)
+Feature-Gap Tier A:  10  (cap 30)   # /checkout snippet  -> also Gate +1
+Feature-Gap Tier B:   6  (cap 10)   # CORS+rate-limit+allowlist, Impact 2 each
+Routing:              6  (cap 20)   # 3 rewrites @ Impact 2 + 2 annotation-only moves
+TLS:                  4  (cap 15)   # cert-manager -> ACM
+Controller:           4  (cap 10)   # nginx EOL, no CVE
+Scale/Volume:         4  (cap 10)   # 10 routes need work (NOT 18) -> Impact 3
+Σ = 34  ->  score = 100 − 34 = 66  (HARD)
 
-Hard blocker: checkout uses a Lua snippet with no equivalent and no workaround → TRUE
-score = min(72, 59) = 59  →  VERY HARD / RE-ARCHITECT
+Re-architecture Gate = 1  ->  "⛔ 1 route needs redesign (snippet on /checkout)"
 ```
 
-The Lua block alone makes this a re-architecture job even though the arithmetic said "moderate" — that is the entire purpose of the override.
+Final: **66 / HARD · ⛔ 1 route needs redesign.** Contrast with v1, which floored the same cluster at **13 / VERY HARD** by maxing Feature-Gap on soft items and then locking the ceiling. The new model credits the 6 done + 2 easy routes, drops CORS/allowlist/rate-limit to Impact 2, counts 10 (not 18) for volume, and reports the one true blocker as a gate instead of erasing the number.
 
 ## Step 2: Consistency Checks (MANDATORY)
 
@@ -124,8 +137,11 @@ The Lua block alone makes this a re-architecture job even though the arithmetic 
 | Prose paragraph that should be a table | Convert to table |
 | Raw YAML in findings (not Migration Approach) | Replace with summary |
 | Score Breakdown total ≠ (100 − score) | Recompute — the table is the source of truth |
-| Hard blocker present but score > 59 | Apply the override — cap at 59 |
-| Headline `[[SCORE:nn:LABEL]]` band ≠ the 1.5 table | Fix the label to match the number |
+| CORS / IP-allowlist / rate-limit scored above Impact 3 | Re-rate: Impact 2 (perf/hardening) or 3 (business-logic-entangled) |
+| Routes already on ALB / Gateway API counted as work | Set to 0 effort; exclude from Scale/Volume count |
+| Scale/Volume scored off the raw total, not routes-needing-work | Recount excluding 0-effort routes |
+| Re-architecture Gate count ≠ Tier-A/passthrough/ownership findings | Reconcile the gate to the master list |
+| Headline `[[SCORE:nn:LABEL]]` band ≠ the §1.5 table | Fix the label to match the number |
 
 ## Step 3: Write Topology JSON
 
@@ -169,21 +185,22 @@ Save to `~/ingress_migration/<cluster>/topology.json`. Include nodes (EC2 instan
 
 ## Migration Difficulty Score
 
-> Place this as the first authored section on the Overview page (the renderer injects the 3D Routing Diagram just above it, so the rendered flow is: cluster info → 3D diagram → this score → Executive Summary). The headline is the `[[SCORE:nn:LABEL]]` token — the renderer turns it into a colored gauge (green = easy, red = hard). `nn` is the 0–100 number from Step 1; `LABEL` is the band (TRIVIAL/EASY/MODERATE/HARD/VERY HARD). One sentence states the bottom line, then the Score Breakdown table makes the math auditable.
+> Place this as the first authored section on the Overview page (the renderer injects the 3D Routing Diagram just above it, so the rendered flow is: cluster info → 3D diagram → this score → Executive Summary). The headline is the `[[SCORE:nn:LABEL]]` token (colored gauge, green = easy / red = hard) optionally followed by a `[[GATE:n]]` token (re-architecture badge: green ✓ when `n` is 0, red ⛔ when `n` > 0). `nn` is the 0–100 number from Step 1; `LABEL` is the band. One sentence states the bottom line, then the Score Breakdown table makes the math auditable.
 
-[[SCORE:72:MODERATE]]
+[[SCORE:66:HARD]] [[GATE:1]]
 
-[One sentence: how hard is leaving NGINX for this cluster, and the single biggest driver. If a hard blocker fired, say so here.]
+[One sentence: how much change leaving NGINX needs for this cluster and the single biggest driver. State how many routes are already done (0 effort) and how many actually need work. If the gate is > 0, name the route(s) that need redesign.]
 
 ### Score Breakdown
 
-| Category | Findings | Deduction | Cap |
-|----------|----------|-----------|-----|
+| Category | Findings (impact) | Deduction | Cap |
+|----------|-------------------|-----------|-----|
 | [highest-deduction category] | [finding (impact), …] | -X pts | [cap] |
 | [next] | [...] | -X pts | [cap] |
 | **Total deductions** | | **-X pts** | **Score: XX% — [LABEL]** |
+| **Re-architecture Gate** | [N route(s) + which, or "none"] | — | informational |
 
-> If a hard blocker fired, add a row below the total: `Hard-blocker override | [which blocker] | score capped at 59 | VERY HARD`.
+> The gate row never changes the total — it flags routes that need a redesign/approval decision. Routes already on ALB / Gateway API / a supported 3rd-party controller are listed at **0 pts** and excluded from the Scale/Volume count.
 
 ---
 

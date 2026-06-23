@@ -318,12 +318,15 @@ Score every finding by **Impact 1–5** using the **Impact Indicator** rubric (d
 
 ## Migration Difficulty Score
 
-Every report leads with a single **Migration Difficulty Score (0–100)** that rolls the per-finding Impact ratings up into one number:
+Every report leads with a single **Migration Difficulty Score (0–100)** plus a separate **Re-architecture Gate** badge:
 
-- **High score = easy / low-risk** to migrate off NGINX; **low score = hard / high business impact.**
-- It is a **deduction model**: start at 100, subtract weighted points per finding (Impact 5→10, 4→6, 3→4, 2→2, 1→1 pts), cap per category, then apply a **hard-blocker override** that caps the score at **59 (VERY HARD / RE-ARCHITECT)** when any finding requires redesign or approval.
+- **High score = little change (easy); low score = much change (hard).** It is a relative *effort index* from the per-finding Impact ratings — not a manday estimate (we cannot know who implements).
+- **Deduction model, no artificial cap.** Start at 100, subtract weighted points per finding (Impact 5→10, 4→6, 3→4, 2→2, 1→1), cap per category, `score = max(0, 100 − Σ)`. The score is **never** locked at a ceiling — a single hard route no longer flattens it.
+- **Re-architecture Gate (separate, informational):** routes needing redesign/approval (Lua/snippet/mirror, TLS passthrough/mTLS, cross-namespace ownership) are reported as a `⛔ N routes` badge next to the score — they do not overwrite the number. Score = "how much work?"; gate = "does anything need a redesign decision?".
+- **Clean routes count at 0 effort:** an Ingress already on the ALB controller, Gateway API, or a supported 3rd-party controller contributes 0 and is excluded from the Volume work-count, so "X of N already done" is visible and lifts the score.
+- **Feature-gap is tiered:** features with no native ALB annotation but a standard workaround — **CORS** (app middleware), **IP allowlist** (Security Group / WAF), **rate-limit** (WAF) — are **Impact 2** (performance/hardening) or **3** (business-logic-entangled), never 4–5. Only no-workaround features (Lua/snippet/mirror/regex-capture) score heavy.
 - Bands: 90–100 TRIVIAL · 80–89 EASY · 70–79 MODERATE · 60–69 HARD · 0–59 VERY HARD.
-- The score is **derived from the findings, not a separate judgement** — it never overrides the team's choice of migration path. Full deterministic algorithm, category weights, hard-blocker list, and the mandatory Score Breakdown table live in `steering/report-generation.md` Step 1.
+- The score is **derived from the findings, not a separate judgement** — it never overrides the team's choice of migration path. Full deterministic algorithm, category weights, gate logic, tiering rules, and the mandatory Score Breakdown table live in `steering/report-generation.md` Step 1.
 
 ## Report Output
 

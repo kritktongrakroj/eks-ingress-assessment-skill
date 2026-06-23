@@ -256,6 +256,22 @@ def _score_badge(score: int, label: str) -> str:
     )
 
 
+def _gate_badge(n: int) -> str:
+    """Render the Re-architecture Gate badge — informational, separate from the score.
+    n == 0 -> green 'no blockers'; n > 0 -> red 'N routes need redesign'."""
+    if n <= 0:
+        color, bg, txt = "#2ea043", "rgba(46,160,67,.12)", "✓ No re-architecture blockers"
+    else:
+        color, bg, txt = "#c44", "rgba(204,68,68,.12)", (
+            f"⛔ {n} route" + ("s" if n != 1 else "") + " need redesign / approval")
+    return (
+        '<div style="display:inline-flex;align-items:center;gap:.5rem;margin:.3rem 0 1rem;padding:.5rem .9rem;'
+        'background:' + bg + ';border:1px solid ' + color + ';border-radius:999px;'
+        'font-family:Poppins,sans-serif;font-size:.82rem;font-weight:600;color:' + color + ';">'
+        + H.escape(txt) + '</div>'
+    )
+
+
 def _build_manifest_section(cluster_idx: int, cluster_name: str, manifests: dict) -> str:
     """Build HTML section with embedded manifest files and download buttons."""
     current_files = {k: v for k, v in manifests.items() if k.startswith("current/")}
@@ -395,6 +411,8 @@ def build_html(clusters: list[dict]) -> str:
         # substitute [[SCORE:nn:LABEL]] headline gauge (Migration Difficulty Score)
         body = re.sub(r"\[\[SCORE:(\d{1,3}):([^\]]+)\]\]",
                       lambda m: _score_badge(int(m.group(1)), m.group(2).strip()), body)
+        # substitute [[GATE:n]] re-architecture gate badge (informational)
+        body = re.sub(r"\[\[GATE:(\d{1,3})\]\]", lambda m: _gate_badge(int(m.group(1))), body)
 
         # place 3D Routing Diagram BEFORE the first content section
         # flow: cluster info table -> 3D diagram -> difficulty score -> executive summary
