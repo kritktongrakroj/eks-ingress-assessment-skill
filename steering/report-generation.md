@@ -7,9 +7,112 @@ Generate dual-format assessment report matching the 5-section navigation structu
 
 This is an **assessment report** — present findings and options, do not prescribe a single migration path.
 
-## Step 1: Build Master Finding List
+## Step 1: Build Master Finding List & Calculate the Migration Difficulty Score
 
-Compile ALL findings from sections 1–7. Every item must appear. No item may be skipped.
+### 1.1 — Build the Master Finding List
+
+Compile ALL findings from sections 1–7. Every item must appear. No item may be skipped. Each finding already carries an **Impact 1–5** (per the Impact Indicator rubric). This list is the single source of truth for the score — every point deducted MUST trace back to exactly one row here.
+
+### 1.2 — What the score means
+
+The **Migration Difficulty Score** is a **0–100** number where **high = easy/low-risk to migrate off NGINX** and **low = hard / high business impact**. It is a *deduction model*: start at 100, subtract points for each rated finding, then apply a hard-blocker override. It does NOT pick a migration path — it tells the reader how much effort and risk leaving NGINX entails.
+
+### 1.3 — Map each finding to a scoring category
+
+Every finding belongs to exactly one category. Categories are weighted by a **max deduction cap** — the cap is how much that dimension can drag down "ease of migration".
+
+| Category | Max deduction | Findings that feed it (source sections) |
+|----------|--------------|-----------------------------------------|
+| Feature-Gap (untranslatable annotations) | 30 | Annotations with no faithful ALB/Gateway-API equivalent — CORS, rate-limit, `auth-url`/`auth-snippet`, `configuration-snippet`/`server-snippet`/Lua, ModSecurity, regex rewrite with capture groups (Ingress Resource Analysis, Traffic & Routing, Blockers) |
+| Routing Complexity | 20 | Regex paths, `rewrite-target`, canary/traffic-split, header/method routing, mirroring, cross-namespace fan-out (Traffic & Routing, Routing Topology) |
+| TLS & Certificates | 15 | cert-manager→ACM move, SNI, mTLS client-cert, TLS passthrough (DNS & Certificates Analysis) |
+| DNS Cutover & Blast Radius | 15 | New ALB endpoint + DNS repoint, external-dns Gateway-API source maturity, hostname/TTL stability (DNS & Certificates Analysis, Migration Risk) |
+| Downtime / Rollback Readiness | 10 | New-LB provisioning, long-lived/stateful connections, presence of a weighted/blue-green rollback path (Migration Risk) |
+| Controller Health & EOL/CVE | 10 | NGINX version EOL, active CVE exposure, controller pod health (Ingress Discovery) |
+| Scale / Volume | 10 | Count of Ingress resources, namespaces, owning teams = raw effort (Ingress Discovery, Routing Topology) |
+| Backend Compatibility | 5 | Exotic backends, `ExternalName`, service-type edge cases (Ingress Resource Analysis) |
+
+Caps deliberately sum to 115 (over-provisioned) so a genuinely messy cluster floors toward 0.
+
+### 1.4 — Scoring algorithm (deterministic — follow EXACTLY)
+
+```
+# Per-finding base points by Impact (reuse the rating you already assigned)
+def base_points(impact):
+    return {5: 10, 4: 6, 3: 4, 2: 2, 1: 1}[impact]   # Unknown (⬜) = 0 pts, but list it
+
+score = 100
+for each category:
+    cat_deduction = 0
+    for each finding in this category:
+        cat_deduction += base_points(finding.impact)
+    cat_deduction = min(cat_deduction, category_cap)   # apply the per-category cap
+    score -= cat_deduction
+score = max(0, score)
+
+# --- Hard-Blocker Override (apply AFTER arithmetic) ---
+# Any blocker => migration needs re-architecture / approval => cap at 59 (VERY HARD).
+# A hard blocker is ALWAYS an Impact-5 finding, but not every Impact-5 is a hard blocker.
+has_hard_blocker = False
+if any production route uses an NGINX feature with NO ALB/Gateway-API equivalent
+   AND no documented workaround (Lua/snippet/mirror/regex-capture-rewrite):  has_hard_blocker = True
+if TLS passthrough OR mTLS client-cert termination is required
+   AND the target path cannot honor it without redesign:                     has_hard_blocker = True
+if cross-namespace / shared-LB routing cannot be expressed without ownership
+   changes (Gateway API ReferenceGrant gap) for a production route:          has_hard_blocker = True
+if a revenue-critical hostname cutover has no rollback path
+   (single hostname, no weighted / blue-green option):                       has_hard_blocker = True
+if the controller is EOL with an active exploitable CVE
+   AND no maintenance window is available:                                   has_hard_blocker = True
+if EKS Auto Mode managed load-balancing AND a self-managed AWS LB Controller
+   both run and race for ownership (must be reconciled first):               has_hard_blocker = True
+
+if has_hard_blocker:
+    score = min(score, 59)
+```
+
+### 1.5 — Score interpretation
+
+| Score | Label | Meaning |
+|-------|-------|---------|
+| 90–100 | **TRIVIAL** | Mechanical — ALB Controller / ATX auto-converts; hours |
+| 80–89 | **EASY** | Minor manual tweaks |
+| 70–79 | **MODERATE** | Several features need manual mapping; plan it |
+| 60–69 | **HARD** | Significant feature gaps or risky cutover |
+| 0–59 | **VERY HARD / RE-ARCHITECT** | Blocker(s) — needs redesign or approval |
+
+### 1.6 — Build the Score Breakdown table (MANDATORY)
+
+Before writing the headline number, produce this table so the math is auditable. Sum `base_points` per category, apply the cap, and the row order is highest-deduction first. The **Total** row must equal `100 − score` (pre-override). If a hard blocker fired, add a final line stating the override.
+
+```
+| Category | Findings | Raw pts | Capped | Cap |
+|----------|----------|---------|--------|-----|
+| Feature-Gap | snippet on /checkout (5), CORS on api (4) | 16 | 16 | 30 |
+| Routing Complexity | rewrite-target ×3 (3) | 4 | 4 | 20 |
+| ... | ... | ... | ... | ... |
+| **Total deductions** | | | **-XX** | |
+```
+
+Then: `Score = 100 − (total capped deductions) = XX`. If `has_hard_blocker`, append: `Hard blocker (<which>) → score capped at 59 (VERY HARD / RE-ARCHITECT).`
+
+### 1.7 — Worked example
+
+Findings: `configuration-snippet` Lua on the checkout route (Impact 5, Feature-Gap, no equivalent → also a hard blocker), `rewrite-target` regex on 3 routes (Impact 3, Routing), cert-manager→ACM move (Impact 3, TLS), 40 ingresses across 6 teams (Impact 4, Scale), NGINX 1.9.x EOL no active CVE (Impact 3, Controller).
+
+```
+Feature-Gap:  10  (cap 30)
+Routing:       4  (cap 20)
+TLS:           4  (cap 15)
+Scale:         6  (cap 10)
+Controller:    4  (cap 10)
+Σ = 28  →  score = 100 − 28 = 72  (MODERATE)
+
+Hard blocker: checkout uses a Lua snippet with no equivalent and no workaround → TRUE
+score = min(72, 59) = 59  →  VERY HARD / RE-ARCHITECT
+```
+
+The Lua block alone makes this a re-architecture job even though the arithmetic said "moderate" — that is the entire purpose of the override.
 
 ## Step 2: Consistency Checks (MANDATORY)
 
@@ -20,6 +123,9 @@ Compile ALL findings from sections 1–7. Every item must appear. No item may be
 | Executive Summary mentions wrong rating | Fix to match master list |
 | Prose paragraph that should be a table | Convert to table |
 | Raw YAML in findings (not Migration Approach) | Replace with summary |
+| Score Breakdown total ≠ (100 − score) | Recompute — the table is the source of truth |
+| Hard blocker present but score > 59 | Apply the override — cap at 59 |
+| Headline `[[SCORE:nn:LABEL]]` band ≠ the 1.5 table | Fix the label to match the number |
 
 ## Step 3: Write Topology JSON
 
@@ -36,7 +142,7 @@ Save to `~/ingress_migration/<cluster>/topology.json`. Include nodes (EC2 instan
 3. **No raw YAML/config in findings.** YAML belongs only in Migration Approach.
 4. **Every finding cell: max 2 sentences.**
 5. **No filler text.** Go straight to content.
-6. **No readiness score.** This is an assessment, not a scorecard.
+6. **One Migration Difficulty Score (0–100), derived only from the rated findings.** It is a deterministic roll-up of the per-finding Impact ratings (see Step 1), shown once on the Overview page — not a separate prescriptive verdict. The migration-path decision still belongs to the team. Do NOT invent ad-hoc per-section sub-scores.
 7. **No ASCII art diagrams.** The HTML has the 3D routing diagram.
 8. **Multi-value cells in tables:** put each item on its own line using `<br>` (the renderer turns this into real line breaks). For **Current Configuration**, use nested bullet/sub-bullet lists instead of a table.
 9. **Executive Summary = one-shot understanding for a non-technical reader.** Top-level bullet per impact theme, indented sub-bullets for specifics. Bold the key term in each bullet; wrap the most damaging facts in `!! !!` (renders red).
@@ -58,6 +164,26 @@ Save to `~/ingress_migration/<cluster>/topology.json`. Include nodes (EC2 instan
 | Kubernetes Version | [version] |
 | Account ID | [account-id] |
 | Assessment Date | [YYYY-MM-DD HH:MM] |
+
+---
+
+## Migration Difficulty Score
+
+> Place this FIRST on the Overview page, before the Executive Summary. The headline is the `[[SCORE:nn:LABEL]]` token — the renderer turns it into a colored gauge (green = easy, red = hard). `nn` is the 0–100 number from Step 1; `LABEL` is the band (TRIVIAL/EASY/MODERATE/HARD/VERY HARD). One sentence states the bottom line, then the Score Breakdown table makes the math auditable.
+
+[[SCORE:72:MODERATE]]
+
+[One sentence: how hard is leaving NGINX for this cluster, and the single biggest driver. If a hard blocker fired, say so here.]
+
+### Score Breakdown
+
+| Category | Findings | Deduction | Cap |
+|----------|----------|-----------|-----|
+| [highest-deduction category] | [finding (impact), …] | -X pts | [cap] |
+| [next] | [...] | -X pts | [cap] |
+| **Total deductions** | | **-X pts** | **Score: XX% — [LABEL]** |
+
+> If a hard blocker fired, add a row below the total: `Hard-blocker override | [which blocker] | score capped at 59 | VERY HARD`.
 
 ---
 
@@ -381,7 +507,7 @@ For customers with AWS Transform access — fully automated manifest rewriting. 
 Do NOT fabricate URLs beyond this list.
 
 **Section placement in nav:**
-- **Overview:** Information table, Executive Summary (top), 3D Routing Diagram, Impact Indicator (rubric, just before Assessment Summary)
+- **Overview:** Information table, **Migration Difficulty Score (headline gauge + Score Breakdown, FIRST)**, Executive Summary, 3D Routing Diagram, Impact Indicator (rubric, just before Assessment Summary)
 - **Assessment Summary:** Assessment Summary table, Current Configuration, Ingress Discovery
 - **Routing Topology:** Routing Topology table, Traffic & Routing
 - **Migration Approach:** Migration Options (Option 1: Gateway API, Option 2: ALB Controller, Option 3: ATX — same panel + Phase 1–4 layout), **Blockers**, **Recommendations**

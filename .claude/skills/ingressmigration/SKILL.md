@@ -31,6 +31,7 @@ Pre-flight → Assess (7 sections) → Current Architecture Topology → Dual Re
 4. **Dual Report** — Automatically generate both:
    - **Markdown** (detailed) — full findings, ratings, options, CLI commands
    - **HTML** (visual summary) — interactive dashboard with 3D Routing Diagram view, collapsible sections
+   - Both lead with the **Migration Difficulty Score (0–100)** — a deterministic roll-up of the per-finding Impact ratings (high = easy to leave NGINX, low = hard / high business impact). See `steering/report-generation.md` Step 1.
 5. **Export Materials** — Generate ready-to-apply YAML files:
    - `current/` — existing Ingress resources (clean, no status fields)
    - `target/gateway-api/` — Gateway API resources (GatewayClass, Gateway, HTTPRoute) in apply order
@@ -52,7 +53,7 @@ Pre-flight → Assess (7 sections) → Current Architecture Topology → Dual Re
 
 | Nav Page | Contains |
 |----------|----------|
-| Overview | Cluster info table, Executive Summary (top), 3D Routing Diagram, Impact Indicator (rubric, before Assessment Summary) |
+| Overview | Cluster info table, **Migration Difficulty Score (headline gauge + Score Breakdown)**, Executive Summary, 3D Routing Diagram, Impact Indicator (rubric, before Assessment Summary) |
 | Assessment Summary | Assessment Summary table (Impact-ordered), Current Configuration, Ingress Discovery |
 | Routing Topology | Routing table (per-route line items + Impact), Traffic & Routing |
 | Migration Approach | Migration Options (Option 1 Gateway API, Option 2 ALB, Option 3 ATX — consistent panels + per-option download buttons), Blockers, Recommendations |
@@ -314,6 +315,15 @@ Score every finding by **Impact 1–5** using the **Impact Indicator** rubric (d
 | ⬜ Unknown | — | Cannot determine — state what to check and why. |
 
 > Easy-to-deploy prerequisites (e.g. installing CRDs) are **Low** even if they block a path. Never use GREEN/AMBER/RED.
+
+## Migration Difficulty Score
+
+Every report leads with a single **Migration Difficulty Score (0–100)** that rolls the per-finding Impact ratings up into one number:
+
+- **High score = easy / low-risk** to migrate off NGINX; **low score = hard / high business impact.**
+- It is a **deduction model**: start at 100, subtract weighted points per finding (Impact 5→10, 4→6, 3→4, 2→2, 1→1 pts), cap per category, then apply a **hard-blocker override** that caps the score at **59 (VERY HARD / RE-ARCHITECT)** when any finding requires redesign or approval.
+- Bands: 90–100 TRIVIAL · 80–89 EASY · 70–79 MODERATE · 60–69 HARD · 0–59 VERY HARD.
+- The score is **derived from the findings, not a separate judgement** — it never overrides the team's choice of migration path. Full deterministic algorithm, category weights, hard-blocker list, and the mandatory Score Breakdown table live in `steering/report-generation.md` Step 1.
 
 ## Report Output
 

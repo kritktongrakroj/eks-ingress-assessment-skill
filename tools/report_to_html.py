@@ -220,13 +220,40 @@ footer{font-family:'Poppins',sans-serif;font-size:.75rem}
 
 
 NAV_SECTIONS = [
-    ("overview", "Overview", ["executive-summary", "impact-indicator"]),
+    ("overview", "Overview", ["migration-difficulty-score", "executive-summary", "impact-indicator"]),
     ("assessment", "Assessment Summary", ["assessment-summary", "current-configuration", "ingress-discovery"]),
     ("routing", "Routing Topology", ["routing-topology", "traffic-routing"]),
     ("migration", "Migration Approach", ["migration-options", "blockers", "recommendations"]),
     ("analysis", "Analysis", ["ingress-resource-analysis", "dns-certificates-analysis", "migration-risk"]),
     ("references", "References", ["export-materials", "aws-reference-links"]),
 ]
+
+
+def _score_badge(score: int, label: str) -> str:
+    """Render the Migration Difficulty Score as a conic-gradient donut gauge + label.
+    High score = easy to migrate (green); low score = hard (red)."""
+    score = max(0, min(100, score))
+    if score >= 80:   color = "#2ea043"   # easy
+    elif score >= 70: color = "#d29922"   # moderate
+    elif score >= 60: color = "#e8590c"   # hard
+    else:             color = "#c44"      # very hard
+    return (
+        '<div style="display:flex;align-items:center;gap:1.2rem;margin:.5rem 0 1rem;padding:1.1rem 1.3rem;'
+        'background:var(--surface);border:1px solid var(--border);border-left:5px solid ' + color + ';border-radius:var(--radius);">'
+        '<div style="flex:0 0 auto;width:96px;height:96px;border-radius:50%;background:conic-gradient(' + color + ' '
+        + str(score) + '%,var(--border) 0);display:flex;align-items:center;justify-content:center;">'
+        '<div style="width:72px;height:72px;border-radius:50%;background:var(--surface);display:flex;flex-direction:column;'
+        'align-items:center;justify-content:center;">'
+        '<span style="font-family:Poppins,sans-serif;font-size:1.5rem;font-weight:600;color:' + color + ';line-height:1;">'
+        + str(score) + '</span><span style="font-size:.55rem;color:var(--text2);letter-spacing:.05em;">/ 100</span>'
+        '</div></div>'
+        '<div><div style="font-family:Poppins,sans-serif;font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;'
+        'color:var(--text2);">Migration Difficulty</div>'
+        '<div style="font-family:Poppins,sans-serif;font-size:1.4rem;font-weight:600;color:' + color + ';margin:.1rem 0;">'
+        + H.escape(label) + '</div>'
+        '<div style="font-size:.78rem;color:var(--text2);">Higher = easier to migrate off NGINX · '
+        'Lower = harder / more business impact</div></div></div>'
+    )
 
 
 def _build_manifest_section(cluster_idx: int, cluster_name: str, manifests: dict) -> str:
@@ -362,6 +389,10 @@ def build_html(clusters: list[dict]) -> str:
         for tok, html in _manifest_buttons(c["name"], c.get("manifests") or {}).items():
             body = body.replace(tok, html)
         body = re.sub(r"\[\[DL:[a-z-]+\]\]", "", body)  # strip any unmatched placeholders
+
+        # substitute [[SCORE:nn:LABEL]] headline gauge (Migration Difficulty Score)
+        body = re.sub(r"\[\[SCORE:(\d{1,3}):([^\]]+)\]\]",
+                      lambda m: _score_badge(int(m.group(1)), m.group(2).strip()), body)
 
         # place 3D Routing Diagram right AFTER the first section (Executive Summary)
         if topo_html:
