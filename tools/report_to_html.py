@@ -361,11 +361,13 @@ def build_html(clusters: list[dict]) -> str:
         nav_links += f'<div class="nav-section">{H.escape(group_label)}</div>\n'
         if group_id == "references":
             nav_links += '<a href="#export-materials">Export Materials</a>\n'
+        topo_added = False
         for slug, title in toc:
             if slug in slugs or any(slug.startswith(s) for s in slugs):
-                nav_links += f'<a href="#{slug}">{H.escape(strip_bold(title))}</a>\n'
-                if group_id == "overview" and slug == "executive-summary":
+                if group_id == "overview" and not topo_added and clusters[0].get("topology_json"):
                     nav_links += '<a href="#c0-topo-wrap">3D Routing Diagram</a>\n'
+                    topo_added = True
+                nav_links += f'<a href="#{slug}">{H.escape(strip_bold(title))}</a>\n'
 
     # Build per-cluster content divs
     cluster_divs = ""
@@ -394,13 +396,13 @@ def build_html(clusters: list[dict]) -> str:
         body = re.sub(r"\[\[SCORE:(\d{1,3}):([^\]]+)\]\]",
                       lambda m: _score_badge(int(m.group(1)), m.group(2).strip()), body)
 
-        # place 3D Routing Diagram right AFTER the first section (Executive Summary)
+        # place 3D Routing Diagram BEFORE the first content section
+        # flow: cluster info table -> 3D diagram -> difficulty score -> executive summary
         if topo_html:
-            marker = "</div></details>"
+            marker = '<details class="section"'
             pos = body.find(marker)
             if pos != -1:
-                cut = pos + len(marker)
-                body = body[:cut] + "\n" + topo_html + "\n" + body[cut:]
+                body = body[:pos] + topo_html + "\n" + body[pos:]
             else:
                 body = topo_html + "\n" + body
 

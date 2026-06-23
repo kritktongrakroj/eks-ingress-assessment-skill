@@ -53,7 +53,7 @@ Pre-flight → Assess (7 sections) → Current Architecture Topology → Dual Re
 
 | Nav Page | Contains |
 |----------|----------|
-| Overview | Cluster info table, **Migration Difficulty Score (headline gauge + Score Breakdown)**, Executive Summary, 3D Routing Diagram, Impact Indicator (rubric, before Assessment Summary) |
+| Overview | Cluster info table, 3D Routing Diagram, **Migration Difficulty Score (headline gauge + Score Breakdown)**, Executive Summary, Impact Indicator (rubric, before Assessment Summary) |
 | Assessment Summary | Assessment Summary table (Impact-ordered), Current Configuration, Ingress Discovery |
 | Routing Topology | Routing table (per-route line items + Impact), Traffic & Routing |
 | Migration Approach | Migration Options (Option 1 Gateway API, Option 2 ALB, Option 3 ATX — consistent panels + per-option download buttons), Blockers, Recommendations |

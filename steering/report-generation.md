@@ -169,7 +169,7 @@ Save to `~/ingress_migration/<cluster>/topology.json`. Include nodes (EC2 instan
 
 ## Migration Difficulty Score
 
-> Place this FIRST on the Overview page, before the Executive Summary. The headline is the `[[SCORE:nn:LABEL]]` token — the renderer turns it into a colored gauge (green = easy, red = hard). `nn` is the 0–100 number from Step 1; `LABEL` is the band (TRIVIAL/EASY/MODERATE/HARD/VERY HARD). One sentence states the bottom line, then the Score Breakdown table makes the math auditable.
+> Place this as the first authored section on the Overview page (the renderer injects the 3D Routing Diagram just above it, so the rendered flow is: cluster info → 3D diagram → this score → Executive Summary). The headline is the `[[SCORE:nn:LABEL]]` token — the renderer turns it into a colored gauge (green = easy, red = hard). `nn` is the 0–100 number from Step 1; `LABEL` is the band (TRIVIAL/EASY/MODERATE/HARD/VERY HARD). One sentence states the bottom line, then the Score Breakdown table makes the math auditable.
 
 [[SCORE:72:MODERATE]]
 
@@ -507,7 +507,7 @@ For customers with AWS Transform access — fully automated manifest rewriting. 
 Do NOT fabricate URLs beyond this list.
 
 **Section placement in nav:**
-- **Overview:** Information table, **Migration Difficulty Score (headline gauge + Score Breakdown, FIRST)**, Executive Summary, 3D Routing Diagram, Impact Indicator (rubric, just before Assessment Summary)
+- **Overview:** Information table, **3D Routing Diagram** (injected by the renderer), **Migration Difficulty Score** (headline gauge + Score Breakdown), Executive Summary, Impact Indicator (rubric, just before Assessment Summary)
 - **Assessment Summary:** Assessment Summary table, Current Configuration, Ingress Discovery
 - **Routing Topology:** Routing Topology table, Traffic & Routing
 - **Migration Approach:** Migration Options (Option 1: Gateway API, Option 2: ALB Controller, Option 3: ATX — same panel + Phase 1–4 layout), **Blockers**, **Recommendations**
