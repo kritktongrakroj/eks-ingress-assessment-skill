@@ -15,7 +15,7 @@ Compile ALL findings from sections 1–7. Every item must appear. No item may be
 
 ### 1.2 — What the score means
 
-The **Migration Difficulty Score** is a **0–100** number that reflects the **amount of change / effort** needed to leave NGINX: **high = little change (easy)**, **low = much change (hard)**. It is an *effort index*, not a manday estimate — we cannot know who implements it — so it ranks relative effort using the per-finding Impact ratings.
+The **Migration Difficulty Score** is a **0–100** number that reflects the **amount of change / effort** needed to move from the **current ingress source** (NGINX, ALB Ingress, or 3rd-party) to the **chosen target** (Gateway API or ALB Ingress): **high = little change (easy)**, **low = much change (hard)**. It is an *effort index*, not a manday estimate — we cannot know who implements it — so it ranks relative effort using the per-finding Impact ratings.
 
 Two design rules from operator feedback drive this version:
 
@@ -26,12 +26,12 @@ Two design rules from operator feedback drive this version:
 
 Every finding belongs to exactly one category. Categories are weighted by a **max deduction cap** — the cap is how much that dimension can drag down "ease of migration".
 
-**0-effort routes (count, never deduct):** an Ingress/route already served by the **AWS Load Balancer Controller (ALB)**, **Gateway API**, or a **maintained 3rd-party controller that supports the NGINX feature set** is "done". It appears in the inventory denominator at **0 pts** and is **excluded** from the Scale/Volume work-count. Do not deduct for routes that need no migration.
+**0-effort routes (count, never deduct) — relative to the *chosen target*:** an Ingress/route already served by the **chosen target controller** is "done" — e.g. routes already on **Gateway API** when the target is Gateway API, or routes already on the **AWS Load Balancer Controller (ALB)** when the target is ALB Ingress (a maintained 3rd-party controller that already meets the goal also counts). It appears in the inventory denominator at **0 pts** and is **excluded** from the Scale/Volume work-count. **Source-relative caveat:** when the source is **ALB Ingress** and the target is **Gateway API**, ALB-Ingress routes are **migration work, not done** — score them via Migration Risk 6.4 + Routing Complexity. Do not deduct for routes that need no migration.
 
 | Category | Max deduction | Findings that feed it (source sections) |
 |----------|--------------|-----------------------------------------|
-| Feature-Gap — **No Equivalent (Tier A)** | 30 | NGINX features with **no faithful target equivalent and no standard workaround**: `configuration-snippet`/`server-snippet`/Lua, ModSecurity, mirror-to-arbitrary-backend, regex rewrite with capture groups, TLS passthrough, mTLS client-cert. **These also raise the Re-architecture Gate.** (Ingress Resource Analysis, Traffic & Routing, Blockers) |
-| Feature-Gap — **Workaround Exists (Tier B)** | 10 | Features with **no native ALB annotation but a well-known low-effort workaround**: **CORS** (app/middleware), **IP allowlist** (Security Group / WAF), **rate-limit** (WAF). Rate **Impact 2** when the feature is performance/hardening only; **Impact 3** when it is entangled with business-logic flow (multiple workstreams to coordinate). Never Impact 4–5. (Ingress Resource Analysis, Traffic & Routing) |
+| Feature-Gap — **No Equivalent (Tier A)** | 30 | **Source features with no faithful target equivalent and no standard workaround.** NGINX source: `configuration-snippet`/`server-snippet`/Lua, ModSecurity, mirror-to-arbitrary-backend, regex rewrite with capture groups, TLS passthrough, mTLS client-cert. **ALB-Ingress→Gateway source:** external Target Group `actions.*` ownership conflict, `frontend-nlb-*` (Migration Risk 6.4). **These also raise the Re-architecture Gate.** (Ingress Resource Analysis, Traffic & Routing, Blockers) |
+| Feature-Gap — **Workaround Exists (Tier B)** | 10 | Features with **no native target annotation but a well-known low-effort workaround**: **CORS** (app/middleware), **IP allowlist** (Security Group / WAF), **rate-limit** (WAF). **ALB-Ingress→Gateway source:** **WAF Classic** (`waf-acl-id`/`web-acl-id`) → migrate to WAFv2 first. Rate **Impact 2** when the feature is performance/hardening only; **Impact 3** when it is entangled with business-logic flow (multiple workstreams to coordinate). Never Impact 4–5. (Ingress Resource Analysis, Traffic & Routing) |
 | Routing Complexity | 20 | Regex paths, `rewrite-target`, canary/traffic-split, header/method routing, cross-namespace fan-out (Traffic & Routing, Routing Topology) |
 | TLS & Certificates | 15 | cert-manager→ACM move, SNI, multi-cert hosts (DNS & Certificates Analysis) |
 | DNS Cutover & Blast Radius | 15 | New ALB endpoint + DNS repoint, external-dns Gateway-API source maturity, hostname/TTL stability (DNS & Certificates Analysis, Migration Risk) |
@@ -54,8 +54,9 @@ def base_points(impact):
 #   Impact 3 if entangled with business-logic flow (multiple workstreams)
 # NEVER score a Tier-B feature above Impact 3.
 
-# 0-effort routes (already on ALB / Gateway API / supported 3rd-party):
+# 0-effort routes (already on the CHOSEN TARGET controller):
 #   list them in the inventory, contribute 0 pts, EXCLUDE from Scale/Volume count.
+#   NOTE: ALB-Ingress routes are NOT 0-effort when the target is Gateway API.
 
 score = 100
 for each category:

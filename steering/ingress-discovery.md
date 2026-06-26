@@ -101,3 +101,26 @@ Discover all ingress controllers, IngressClass resources, and Ingress objects in
 **Why it matters:** on Auto Mode the ALB Ingress path needs **no self-managed LBC install** (it's built in); a `eks.amazonaws.com/alb` IngressClass is a *managed* controller, not a missing one. Gateway API L7 still requires the LBC ≥ v2.14 unless/until Auto Mode exposes it natively.
 
 **Impact (per Impact Indicator):** informational — record Auto Mode status in Current Configuration; it does not by itself carry a migration impact, but it changes the Migration Options guidance.
+
+### 1.6 — Migration Source & Recommended Target(s)
+
+> Establishes the **starting point** so the report leads with the fitting path. The skill is **source-agnostic** — NGINX is the most common source, but **ALB Ingress** and **3rd-party** controllers are first-class sources too (e.g. an estate already on the ALB controller modernizing to Gateway API).
+
+**What to check (read-only):** using 1.1–1.5, classify each IngressClass / route by its **current controller**:
+- **NGINX** — `ingressClassName: nginx`, `kubernetes.io/ingress.class: nginx`, ingress-nginx pods.
+- **ALB Ingress** — self-managed LBC (`ingress.k8s.aws/alb`) or Auto Mode managed (`eks.amazonaws.com/alb`).
+- **Gateway API already** — Gateway / HTTPRoute resources present.
+- **3rd-party** — Traefik, HAProxy, Istio, Contour, Kong, etc.
+
+**Recommended target & tooling (drive Migration Options):**
+
+| Current source | Recommended target(s) | Tooling | Notes |
+|---|---|---|---|
+| NGINX | ALB Ingress **or** Gateway API | Manual mapping; **ATX** (NGINX→ALB only); dry-run for Gateway | Most common case; ATX TD is `td_ingress-nginx-lbc`. |
+| ALB Ingress | **Gateway API** | **`lbc-migrate`** + dry-run Migration Console (`gateway-api.md`) | Already on ALB → modernize to Gateway. Scan 6.4 blockers. |
+| 3rd-party | ALB Ingress / Gateway API | Manual; assess feature parity per controller | No automated converter; rate by feature gap. |
+| Gateway API | — (already modern) | — | 0-effort relative to a Gateway target. |
+
+**Impact (per Impact Indicator):** informational — records the source→target framing in Current Configuration; it sets which option the report leads with, not a standalone score.
+
+> **Scoring contract (cite in `report-generation.md` §1.3):** "0-effort / done" is relative to the **chosen target**. Routes already on the target contribute 0; routes on a *different* current controller are migration **work** — this explicitly includes **ALB-Ingress routes when the target is Gateway API** (do NOT count those as done).

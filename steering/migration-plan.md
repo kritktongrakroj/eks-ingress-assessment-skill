@@ -8,6 +8,8 @@
 ## Purpose
 Generate a concrete, phased migration plan from Ingress to Gateway API based on assessment findings.
 
+> **Source-agnostic.** This plan applies whether the current source is **NGINX** or the **AWS Load Balancer Controller (ALB Ingress)**. For an **ALB-Ingress source**, generate the Gateway manifests with `lbc-migrate` and scan the 6.4 blockers; for an **NGINX source**, use the skill's own annotation→HTTPRoute mapping. The phases, dry-run verification, and parallel-ALB cutover below are identical regardless of source.
+
 ## Plan Structure
 
 ### Phase 1: Foundation (Week 1)

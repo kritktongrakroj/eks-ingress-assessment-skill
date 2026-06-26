@@ -11,6 +11,17 @@ This skill assesses your live EKS cluster's current Ingress architecture and eva
 
 **This is an assessment tool, not a decision-maker.** The skill presents findings and options — the migration strategy and readiness decision belongs to the user's DevOps team.
 
+**Multi-source, multi-target.** The skill is **source-agnostic**: the current ingress source can be **NGINX**, the **AWS Load Balancer Controller (ALB Ingress)**, or a **3rd-party controller**, and the chosen target can be **Gateway API** or **ALB Ingress**. It detects the source during discovery and recommends the fitting path + tooling:
+
+| Current source | Target | Tooling |
+|---|---|---|
+| NGINX | ALB Ingress | Manual annotation mapping, or **ATX** (automated) |
+| NGINX | Gateway API | Manual NGINX→HTTPRoute mapping + dry-run verification |
+| ALB Ingress | Gateway API | Official **`lbc-migrate`** CLI + dry-run Migration Console |
+| 3rd-party | ALB / Gateway API | Case-by-case (assess feature parity) |
+
+New source/target pairs can be added as the ecosystem evolves — keep the options presented evenly.
+
 **Migration options assessed:**
 
 | Option | Status | Notes |
