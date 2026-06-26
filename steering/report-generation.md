@@ -318,7 +318,7 @@ Save to `~/ingress_migration/<cluster>/topology.json`. Include nodes (EC2 instan
 
 > **What:** Kubernetes-native successor to Ingress (HTTPRoute + Gateway). · **Effort:** Medium · **Best when:** you want the long-term standard.
 > **Routing config:** [[DL:gateway-api]]
-> **Caveats:** L7 ALB Gateway API support is recent (HTTPRoute ≥ v2.14, GA 2026 line) — verify TLS handling and routing filters per route before cutover. On **EKS Auto Mode** running a self-managed LBC too, scope `GatewayClass`/`IngressClass` per controller to avoid !!load-balancer ownership conflicts!!.
+> **Caveats:** L7 ALB Gateway API support is recent (HTTPRoute ≥ v2.14, GA 2026 line) — verify TLS handling and routing filters per route before cutover. On **EKS Auto Mode** running a self-managed LBC too, scope `GatewayClass`/`IngressClass` per controller to avoid !!load-balancer ownership conflicts!!. For routes already on the **ALB Ingress** controller, scan `lbc-migrate` blockers first — WAF Classic (`waf-acl-id`/`web-acl-id`), `frontend-nlb-*`, and external Target Group ownership have no clean Gateway path (see Migration Risk 6.4) — and run new ALBs **in parallel** with the old (expect !!duplicate ALB cost!! during cutover).
 
 #### Phase 1 — Foundation
 | Step | Action |
@@ -331,9 +331,10 @@ Save to `~/ingress_migration/<cluster>/topology.json`. Include nodes (EC2 instan
 #### Phase 2 — Convert & Test
 | Step | Action |
 |------|--------|
-| 1 | Generate HTTPRoutes from current Ingress (download config above) |
-| 2 | Apply low-risk routes first; validate routing, TLS, health |
-| 3 | Routes with no equivalent (snippets/auth/mirror) — redesign (see [blocker](#blockers)) |
+| 1 | Generate HTTPRoutes from current Ingress (download config above). For routes already on **ALB Ingress**, `lbc-migrate` can auto-generate them — see `gateway-api.md`. |
+| 2 | Verify equivalence with the **dry-run Migration Console** before creating any ALB (`gateway.k8s.aws/dry-run` + `IngressPlanAnnotation`) |
+| 3 | Apply low-risk routes first; validate routing, TLS, health (new ALBs run in parallel with the old) |
+| 4 | Routes with no equivalent (snippets/auth/mirror) — redesign (see [blocker](#blockers)) |
 
 #### Phase 3 — Cutover
 | Step | Action |
@@ -383,7 +384,7 @@ Stay on the Ingress API but swap NGINX annotations for ALB annotations. Gets you
 | `nginx...rewrite-target: /$2` | `alb...transforms.<svc>` (url-rewrite JSON) |
 | `spec.tls[].secretName` | `alb...certificate-arn` or `certificate-discovery: "true"` |
 | `nginx...ssl-redirect: "true"` | `alb...ssl-redirect: "443"` |
-| `nginx...proxy-read-timeout` | `alb...target-group-attributes: idle_timeout.timeout_seconds=N` |
+| `nginx...proxy-read-timeout` | `alb...load-balancer-attributes: idle_timeout.timeout_seconds=N` |
 | `nginx...auth-url` | `alb...auth-type: oidc` + `auth-idp-oidc` JSON |
 | `nginx...enable-cors` | Remove — use AWS WAF or app-level |
 | `nginx...whitelist-source-range` | `alb...scheme: internal` + security groups |
@@ -512,6 +513,9 @@ For customers with AWS Transform access — fully automated manifest rewriting. 
 |-------|-----|
 | Gateway API on EKS | https://docs.aws.amazon.com/eks/latest/userguide/gateway-api.html |
 | AWS Load Balancer Controller | https://kubernetes-sigs.github.io/aws-load-balancer-controller/ |
+| Ingress→Gateway Migration (lbc-migrate) | https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/ingress2gateway/migrate_from_ingress/ |
+| lbc-migrate CLI Reference | https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/ingress2gateway/lbc_migrate_reference/ |
+| Ingress→Gateway Migration Console | https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/ingress2gateway/in_cluster_console/ |
 | Gateway API Specification | https://gateway-api.sigs.k8s.io/ |
 | HTTPRoute API Reference | https://gateway-api.sigs.k8s.io/api-types/httproute/ |
 | Gateway API Migration Guide | https://gateway-api.sigs.k8s.io/guides/migrating-from-ingress/ |

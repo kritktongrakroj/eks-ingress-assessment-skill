@@ -141,13 +141,11 @@ Confirm the account ID matches what the user provided.
 
 **Action 2 — Discover all EKS clusters across regions**
 
-Scan these regions for clusters:
+Enumerate the account's enabled regions, then scan each for clusters:
 
-| Region | Name |
-|--------|------|
-| ap-southeast-1 | Singapore |
-| ap-southeast-7 | Thailand |
-| us-east-1 | N. Virginia |
+```
+aws ec2 describe-regions --query 'Regions[].RegionName' --output text
+```
 
 For each region:
 ```

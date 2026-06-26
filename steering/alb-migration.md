@@ -75,7 +75,7 @@ alb.ingress.kubernetes.io/transforms.<service-name>: |
 
 | Before (NGINX) | After (ALB) |
 |----------------|-------------|
-| `nginx...proxy-read-timeout: "120"` | `alb.ingress.kubernetes.io/target-group-attributes: idle_timeout.timeout_seconds=120` |
+| `nginx...proxy-read-timeout: "120"` | `alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=120` |
 | `nginx...proxy-send-timeout: "120"` | (same — ALB uses single idle timeout) |
 
 ### CORS
@@ -140,6 +140,8 @@ alb.ingress.kubernetes.io/group.order: "10"
 1. Apply annotation mapping (above) to each Ingress
 2. Use ATX for automated conversion (if available) — see `steering/atx-guide.md`
 3. Validate with `kubectl apply --dry-run=client -f <file>`
+
+> **Going to Gateway API instead of staying on ALB Ingress?** If these routes are already on the AWS LB Controller (ALB) Ingress and the target is Gateway API, use the official **`lbc-migrate`** CLI + dry-run Migration Console rather than hand-converting — see `steering/gateway-api.md` → *Automated path: `lbc-migrate` + dry-run equivalence*.
 
 ### Phase 3: Deploy & Shift Traffic
 1. Deploy migrated Ingress (creates new ALB)

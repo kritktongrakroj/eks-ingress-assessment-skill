@@ -73,3 +73,25 @@ Evaluate risk of migrating from Ingress to Gateway API.
 - 🟠 3–4 (Medium): Ingress resources in Git but no GitOps
 - 🔴 5 (High): Ingress resources not in version control
 - ⬜ Unknown: Cannot determine rollback readiness
+
+### 6.4 — ALB Ingress → Gateway API Translation Blockers
+
+> **Scope:** applies only when routes already use the AWS LB Controller (ALB) Ingress **and** the chosen target is Gateway API (the `lbc-migrate` automated path in `steering/gateway-api.md`). Skip for NGINX-only estates — those are covered by 6.2. All checks are **read-only** (inspect annotations / TG ownership; never modify).
+
+**What to check:**
+- **WAF Classic** annotations (`alb.ingress.kubernetes.io/waf-acl-id`, `web-acl-id`) — **not supported** by the Gateway translation; must move to WAFv2 first.
+- **`frontend-nlb-*`** annotations — **not supported**; no Gateway equivalent.
+- **External Target Group** references in `alb.ingress.kubernetes.io/actions.*` — a TG can be owned by only one ALB; the new Gateway ALB cannot attach a TG still owned by the Ingress ALB.
+- **`group.order` / cross-namespace IngressGroup** — rule priority and count differ on the Gateway side; cross-namespace groups require `lbc-migrate --all-namespaces` or the output is incomplete.
+
+**How to check:**
+1. Inventory in-use `alb.ingress.kubernetes.io/*` annotations from Section 3.
+2. Flag any `waf-acl-id` / `web-acl-id` / `frontend-nlb-*` against the LBC annotation-support list.
+3. For `actions.*`, identify whether the referenced TG is an external (pre-existing) TG owned by the current Ingress ALB.
+4. Note any IngressGroup spanning multiple namespaces.
+
+**Impact (per Impact Indicator):**
+- 🟡 1–2 (Low): No WAF Classic / `frontend-nlb-*` / external-TG / cross-namespace group in use — translation is clean.
+- 🟠 3–4 (Medium): WAF Classic or cross-namespace IngressGroup present — resolvable but needs a pre-step (WAFv2 move, namespace-scoped run).
+- 🔴 5 (High): External-TG ownership conflict on a live route — needs an ownership/cutover plan before any apply.
+- ⬜ Unknown: Cannot inspect annotations / TG ownership.

@@ -93,6 +93,8 @@ Generate a concrete, phased migration plan from Ingress to Gateway API based on 
 4. Test each HTTPRoute independently (new ALB created by Gateway)
 5. Validate DNS, TLS, routing, health checks
 
+> **Automated generation + equivalence check (recommended).** Instead of hand-writing the manifests above, routes already on the **ALB Ingress** controller can be translated with the official **`lbc-migrate`** CLI, and **any** Gateway manifests (tool- or hand-generated) should be verified with the **dry-run Migration Console** — it diffs the ingress vs gateway AWS resource plans field-by-field **before** any ALB is created. NGINX routes still use the skill's own annotation mapping. See `steering/gateway-api.md` → *Automated path: `lbc-migrate` + dry-run equivalence*. Also scan the known blockers there (WAF Classic, `frontend-nlb-*`, external Target Groups, cross-namespace IngressGroups) — see `steering/migration-risk.md` 6.4.
+
 **Report output format:** In the report's "Target Config" column, show the equivalent Gateway API config as compact 1-liner:
 `HTTPRoute/<name>: parentRef=<gateway>, hostnames=[<host>], path=<path> → <backend>:<port>`
 Example: `HTTPRoute/shopping-app-route: parentRef=main-gateway, path=/* → frontend:80`
@@ -100,9 +102,14 @@ Example: `HTTPRoute/nginx-app-route: parentRef=main-gateway, hostnames=[app.exam
 
 ### Phase 3: Traffic Cutover (Week 4)
 
+> **Validate the full cutover procedure in a non-production cluster before executing against production.** "Lowest-risk routes" and keeping the old Ingress as fallback are mitigations, not a substitute for a non-prod gate — a low-risk production route is still production, and path-matching semantic changes can silently route traffic to the wrong backend (see `steering/traffic-routing.md`).
+
 1. Update DNS to point to new Gateway ALB (or use weighted DNS for gradual shift)
 2. Monitor error rates, latency, 5xx responses
 3. Keep old Ingress resources running as fallback
+
+> **Parallel-ALB safety model.** Applying the Gateway manifests creates **new ALBs alongside** the existing Ingress ALBs — both route to the **same Services/Pods**, so existing traffic is undisturbed and you can roll back at every step (delete Gateway → traffic stays on Ingress; shift DNS back if a problem appears post-cutover). This is the LBC-blessed cutover pattern; do not delete the old Ingress until traffic is fully shifted and stable.
+> **Cost caveat:** because both old Ingress ALBs and new Gateway ALBs run in parallel for the cutover window, expect **duplicate ALB-hours + LCU-hours** on the bill until cleanup (Phase 4) completes. Flag this when the estate has many ALBs.
 
 ### Phase 4: Cleanup (Week 5)
 

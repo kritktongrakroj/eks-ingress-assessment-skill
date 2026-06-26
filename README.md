@@ -64,7 +64,7 @@ Then ask:
 
 > Run an ingress migration assessment for account 123456789012
 
-The skill discovers all EKS clusters across configured regions, shows a discovery table, and walks you through the full assessment.
+The skill discovers all EKS clusters across every enabled region in the account, shows a discovery table, and walks you through the full assessment.
 
 ## What Gets Assessed
 
@@ -211,7 +211,7 @@ Your IAM identity needs read access to Kubernetes resources via an [EKS access e
 
 **No clusters found**
 
-The skill scans configured regions (default: `ap-southeast-1`, `ap-southeast-7`, `us-east-1`). To target different regions, update the region list in the SKILL.md pre-flight section.
+The skill enumerates all enabled regions in the account (via `aws ec2 describe-regions`) and scans each for clusters — no region list is hardcoded. If none are found, confirm clusters actually exist in the account and that your credentials are allowed to list them.
 
 **Permission denied errors**
 
